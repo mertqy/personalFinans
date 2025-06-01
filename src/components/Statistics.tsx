@@ -6,7 +6,8 @@ import {
   ArrowTrendingUpIcon, 
   ArrowTrendingDownIcon, 
   CalendarIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  ChartPieIcon
 } from '@heroicons/react/24/outline';
 
 interface StatisticsProps {
@@ -46,6 +47,52 @@ export default function Statistics({ transactions }: StatisticsProps) {
     .reduce((sum, t) => sum + t.amount, 0);
   
   const monthlyBalance = monthlyIncome - monthlyExpenses;
+
+  // Yıllık istatistikler
+  const thisYearTransactions = realTransactions.filter(t => {
+    const transactionDate = new Date(t.date);
+    return transactionDate.getFullYear() === currentYear;
+  });
+  
+  const yearlyIncome = thisYearTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const yearlyExpenses = thisYearTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const yearlyBalance = yearlyIncome - yearlyExpenses;
+
+  // Aylık trend verileri (son 6 ay)
+  const monthlyTrend = [];
+  for (let i = 5; i >= 0; i--) {
+    const targetDate = new Date();
+    targetDate.setMonth(targetDate.getMonth() - i);
+    const targetMonth = targetDate.getMonth();
+    const targetYear = targetDate.getFullYear();
+    
+    const monthTransactions = realTransactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate.getMonth() === targetMonth && 
+             transactionDate.getFullYear() === targetYear;
+    });
+    
+    const monthIncome = monthTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const monthExpense = monthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    monthlyTrend.push({
+      month: targetDate.toLocaleDateString('tr-TR', { month: 'short' }),
+      income: monthIncome,
+      expense: monthExpense,
+      balance: monthIncome - monthExpense
+    });
+  }
   
   // Kategori istatistikleri
   const expensesByCategory = realTransactions
@@ -77,6 +124,10 @@ export default function Statistics({ transactions }: StatisticsProps) {
   
   const avgDailyExpense = daysWithTransactions > 0 ? totalExpenses / daysWithTransactions : 0;
   const avgDailyIncome = daysWithTransactions > 0 ? totalIncome / daysWithTransactions : 0;
+
+  // Grafik için yardımcı fonksiyonlar
+  const maxAmount = Math.max(...monthlyTrend.map(m => Math.max(m.income, m.expense)));
+  const getBarHeight = (amount: number) => maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
   
   return (
     <div className="space-y-4">
@@ -114,6 +165,126 @@ export default function Statistics({ transactions }: StatisticsProps) {
           </div>
         </div>
       </div>
+
+      {/* Yıllık Özet */}
+      <div className="bg-gray-800 p-3 rounded-lg">
+        <div className="flex items-center space-x-2 mb-3">
+          <CalendarIcon className="w-4 h-4 text-purple-400" />
+          <span className="text-sm font-semibold text-white">{currentYear} Yılı Özeti</span>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-xs text-gray-400 mb-1">Yıllık Gelir</div>
+            <div className="text-sm font-bold text-green-400">
+              {formatCurrency(yearlyIncome)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-400 mb-1">Yıllık Gider</div>
+            <div className="text-sm font-bold text-red-400">
+              {formatCurrency(yearlyExpenses)}
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-2 pt-2 border-t border-gray-700">
+          <div className="text-xs text-gray-400 mb-1">Yıllık Net Bakiye</div>
+          <div className={`text-base font-bold ${
+            yearlyBalance >= 0 ? 'text-green-400' : 'text-red-400'
+          }`}>
+            {formatCurrency(yearlyBalance)}
+          </div>
+        </div>
+
+        {/* Yıllık performans yüzdesi */}
+        <div className="mt-2 pt-2 border-t border-gray-700">
+          <div className="text-xs text-gray-400 mb-1">Tasarruf Oranı</div>
+          <div className="text-sm font-bold text-blue-400">
+            {yearlyIncome > 0 ? ((yearlyBalance / yearlyIncome) * 100).toFixed(1) : '0.0'}%
+          </div>
+        </div>
+      </div>
+
+      {/* Aylık Trend Grafiği */}
+      {monthlyTrend.some(m => m.income > 0 || m.expense > 0) && (
+        <div className="bg-gray-800 p-3 rounded-lg">
+          <div className="flex items-center space-x-2 mb-3">
+            <ChartBarIcon className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-semibold text-white">6 Aylık Trend</span>
+          </div>
+          
+          <div className="space-y-3">
+            {/* Chart */}
+            <div className="h-32 flex items-end justify-between space-x-1">
+              {monthlyTrend.map((month, index) => (
+                <div key={index} className="flex-1 flex flex-col items-center space-y-1">
+                  <div className="w-full flex flex-col justify-end space-y-0.5" style={{ height: '80px' }}>
+                    {/* Gelir barı */}
+                    <div 
+                      className="w-full bg-green-500 rounded-sm"
+                      style={{ height: `${getBarHeight(month.income)}%`, minHeight: month.income > 0 ? '2px' : '0px' }}
+                    />
+                    {/* Gider barı */}
+                    <div 
+                      className="w-full bg-red-500 rounded-sm"
+                      style={{ height: `${getBarHeight(month.expense)}%`, minHeight: month.expense > 0 ? '2px' : '0px' }}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-400">{month.month}</div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Legend */}
+            <div className="flex justify-center space-x-4">
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
+                <span className="text-xs text-gray-400">Gelir</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
+                <span className="text-xs text-gray-400">Gider</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kategori Pasta Grafiği */}
+      {topExpenseCategories.length > 0 && (
+        <div className="bg-gray-800 p-3 rounded-lg">
+          <div className="flex items-center space-x-2 mb-3">
+            <ChartPieIcon className="w-4 h-4 text-orange-400" />
+            <span className="text-sm font-semibold text-white">Gider Dağılımı</span>
+          </div>
+          
+          <div className="space-y-2">
+            {topExpenseCategories.map(([category, amount], index) => {
+              const percentage = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0;
+              const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500'];
+              
+              return (
+                <div key={category} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-white">{category}</span>
+                    <div className="text-right">
+                      <div className="text-gray-300 font-semibold">{formatCurrency(amount)}</div>
+                      <div className="text-xs text-gray-400">{percentage.toFixed(1)}%</div>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full ${colors[index] || 'bg-gray-500'}`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       
       {/* Bu Ay İstatistikleri */}
       <div className="bg-gray-800 p-3 rounded-lg">
@@ -240,6 +411,11 @@ export default function Statistics({ transactions }: StatisticsProps) {
           <div className="flex justify-between">
             <span className="text-gray-400 text-xs">Aktif Gün</span>
             <span className="text-white font-semibold text-xs">{daysWithTransactions}</span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-gray-400 text-xs">Bu Yıl İşlem</span>
+            <span className="text-purple-400 font-semibold text-xs">{thisYearTransactions.length}</span>
           </div>
         </div>
       </div>
