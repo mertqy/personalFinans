@@ -1,103 +1,353 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect, useRef } from 'react';
+import { PlusIcon, ArrowUpIcon, ArrowDownIcon, WalletIcon, Bars3Icon, HomeIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { formatCurrency, formatDate, generateId } from '@/lib/utils';
+import { Transaction } from '@/types';
+import Modal from '@/components/forms/Modal';
+import TransactionForm from '@/components/forms/TransactionForm';
+import Statistics from '@/components/Statistics';
+
+interface TransactionFormData {
+  type: 'income' | 'expense';
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
+  isRecurring: boolean;
+  recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+}
+
+function QuickAddButton({ 
+  type, 
+  onClick,
+  amount 
+}: { 
+  type: 'income' | 'expense'; 
+  onClick: () => void;
+  amount: number;
+}) {
+  const isIncome = type === 'income';
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <button
+      onClick={onClick}
+      className={`flex-1 p-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 active:scale-95 ${
+        isIncome 
+          ? 'bg-green-600 hover:bg-green-500' 
+          : 'bg-red-600 hover:bg-red-500'
+      }`}
+    >
+      <div className="flex items-center justify-center space-x-2">
+        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+          isIncome ? 'bg-green-500' : 'bg-red-500'
+        }`}>
+          {isIncome ? (
+            <ArrowUpIcon className="w-3 h-3" />
+          ) : (
+            <ArrowDownIcon className="w-3 h-3" />
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+        <div>
+          <div className="text-xs opacity-90">{isIncome ? 'Gelir' : 'Gider'}</div>
+          <div className="text-xs font-bold">{formatCurrency(amount)}</div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function TransactionItem({ transaction }: { transaction: Transaction }) {
+  const isIncome = transaction.type === 'income';
+  
+  return (
+    <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+      <div className="flex items-center space-x-3">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs ${
+          isIncome ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+        }`}>
+          {isIncome ? (
+            <ArrowUpIcon className="w-4 h-4" />
+          ) : (
+            <ArrowDownIcon className="w-4 h-4" />
+          )}
+        </div>
+        <div>
+          <p className="font-medium text-white text-sm">{transaction.category}</p>
+          <p className="text-xs text-gray-400">{formatDate(transaction.date)}</p>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className={`font-bold text-sm ${
+          isIncome ? 'text-green-400' : 'text-red-400'
+        }`}>
+          {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function MenuDropdown({ 
+  isOpen, 
+  onClose, 
+  currentView, 
+  onViewChange 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  currentView: 'home' | 'stats';
+  onViewChange: (view: 'home' | 'stats') => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="absolute top-full right-0 mt-2 w-40 bg-gray-800 rounded-lg shadow-xl border border-gray-700 z-50">
+      <div className="py-1">
+        <button
+          onClick={() => {
+            onViewChange('home');
+            onClose();
+          }}
+          className={`w-full px-3 py-2 text-left hover:bg-gray-700 transition-colors flex items-center space-x-2 text-sm ${
+            currentView === 'home' ? 'bg-gray-700 text-blue-400' : 'text-white'
+          }`}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          <HomeIcon className="w-4 h-4" />
+          <span>Ana Sayfa</span>
+        </button>
+        
+        <button
+          onClick={() => {
+            onViewChange('stats');
+            onClose();
+          }}
+          className={`w-full px-3 py-2 text-left hover:bg-gray-700 transition-colors flex items-center space-x-2 text-sm ${
+            currentView === 'stats' ? 'bg-gray-700 text-blue-400' : 'text-white'
+          }`}
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <ChartBarIcon className="w-4 h-4" />
+          <span>İstatistikler</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function HomePage() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [currentView, setCurrentView] = useState<'home' | 'stats'>('home');
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsClient(true);
+    const savedTransactions = localStorage.getItem('transactions');
+    if (savedTransactions) {
+      try {
+        const parsed = JSON.parse(savedTransactions);
+        setTransactions(parsed.map((t: Transaction) => ({
+          ...t,
+          date: new Date(t.date)
+        })));
+      } catch (error) {
+        console.error('Error loading transactions:', error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isClient && transactions.length > 0) {
+      localStorage.setItem('transactions', JSON.stringify(transactions));
+    }
+  }, [transactions, isClient]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isMenuOpen]);
+
+  const realTransactions = isClient ? transactions.filter(t => !t.isPlanned) : [];
+  const totalIncome = realTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const totalExpenses = realTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const balance = totalIncome - totalExpenses;
+
+  const handleSubmit = async (data: TransactionFormData) => {
+    if (!isClient) return;
+    
+    const newTransaction: Transaction = {
+      id: generateId(),
+      userId: 'local-user',
+      type: data.type,
+      amount: parseFloat(data.amount.toString()),
+      category: data.category,
+      description: data.description || data.category,
+      date: new Date(data.date),
+      isRecurring: data.isRecurring,
+      recurringFrequency: data.recurringFrequency,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    setTransactions(prev => [newTransaction, ...prev]);
+    setIsIncomeModalOpen(false);
+    setIsExpenseModalOpen(false);
+  };
+
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-900 safe-area-top safe-area-bottom">
+      {/* Header */}
+      <div className="bg-gray-900 px-4 pt-8 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex-1" />
+          <div className="text-center">
+            <h1 className="text-xl font-bold text-white mb-1">Finans</h1>
+            <div className="flex items-center justify-center space-x-2">
+              <WalletIcon className="w-4 h-4 text-blue-400" />
+              <span className={`text-lg font-bold ${
+                balance >= 0 ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {formatCurrency(balance)}
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 flex justify-end">
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+              >
+                <Bars3Icon className="w-5 h-5 text-white" />
+              </button>
+              
+              <MenuDropdown
+                isOpen={isMenuOpen}
+                onClose={() => setIsMenuOpen(false)}
+                currentView={currentView}
+                onViewChange={setCurrentView}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Ana İçerik */}
+      <div className="px-4 pb-4">
+        {currentView === 'home' ? (
+          <>
+            {/* Quick Add Buttons */}
+            <div className="mb-4">
+              <div className="flex space-x-2">
+                <QuickAddButton
+                  type="income"
+                  onClick={() => setIsIncomeModalOpen(true)}
+                  amount={totalIncome}
+                />
+                <QuickAddButton
+                  type="expense"
+                  onClick={() => setIsExpenseModalOpen(true)}
+                  amount={totalExpenses}
+                />
+              </div>
+            </div>
+
+            {/* Transactions List */}
+            <div>
+              <h2 className="text-base font-semibold text-white mb-3">
+                Son İşlemler ({realTransactions.length})
+              </h2>
+              
+              {realTransactions.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <PlusIcon className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-gray-400 mb-4 text-sm">İlk işleminizi ekleyin</p>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setIsIncomeModalOpen(true)}
+                      className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold text-sm"
+                    >
+                      Gelir Ekle
+                    </button>
+                    <button
+                      onClick={() => setIsExpenseModalOpen(true)}
+                      className="w-full bg-red-600 text-white py-2 rounded-lg font-semibold text-sm"
+                    >
+                      Gider Ekle
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {realTransactions
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .slice(0, 15)
+                    .map((transaction) => (
+                      <TransactionItem
+                        key={transaction.id}
+                        transaction={transaction}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <Statistics transactions={transactions} />
+        )}
+      </div>
+
+      {/* Modals */}
+      <Modal
+        isOpen={isIncomeModalOpen}
+        onClose={() => setIsIncomeModalOpen(false)}
+        title="Gelir Ekle"
+      >
+        <TransactionForm
+          type="income"
+          onSubmit={handleSubmit}
+          onCancel={() => setIsIncomeModalOpen(false)}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={isExpenseModalOpen}
+        onClose={() => setIsExpenseModalOpen(false)}
+        title="Gider Ekle"
+      >
+        <TransactionForm
+          type="expense"
+          onSubmit={handleSubmit}
+          onCancel={() => setIsExpenseModalOpen(false)}
+        />
+      </Modal>
     </div>
   );
 }
