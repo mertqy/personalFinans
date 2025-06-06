@@ -345,7 +345,7 @@ export default function HomePage() {
           </div>
 
       {/* Ana İçerik */}
-      <div className="px-4 pb-24">
+      <div className="px-4 pb-24" style={{ paddingTop: '40px' }}>
         {currentView === 'home' ? (
           <div className="animate-fade-in">
             {/* Quick Add Buttons */}
