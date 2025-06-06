@@ -317,7 +317,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 safe-area-top safe-area-bottom">
       {/* Header */}
-      <div className="glass px-4 pt-8 pb-6 animate-slide-up">
+      <div className="glass px-4 pt-8 pb-6 animate-slide-up mb-8">
           <div className="flex items-center justify-between">
           <div className="flex-1" />
           <div className="text-center">
