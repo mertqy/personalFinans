@@ -58,7 +58,7 @@ function StatCard({
 }: {
   title: string;
   value: string | number;
-  icon: any;
+  icon: React.ElementType;
   trend?: 'up' | 'down';
   color?: 'blue' | 'green' | 'red' | 'purple';
   delay?: number;
