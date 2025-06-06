@@ -213,34 +213,6 @@ function MenuDropdown({
   );
 }
 
-// Floating Action Button Component
-function FloatingActionButton({ onClick, type }: { onClick: () => void; type: 'income' | 'expense' }) {
-  const { triggerMedium } = useHapticFeedback();
-  const isIncome = type === 'income';
-  
-  const handleClick = () => {
-    triggerMedium();
-    onClick();
-  };
-  
-  return (
-    <button
-      onClick={handleClick}
-      className={`fixed bottom-6 ${isIncome ? 'right-6' : 'left-6'} w-14 h-14 rounded-full 
-        shadow-lg btn-bounce float z-40 transition-all duration-300 ${
-        isIncome 
-          ? 'bg-gradient-to-r from-green-500 to-green-400 shadow-green-500/30' 
-          : 'bg-gradient-to-r from-red-500 to-red-400 shadow-red-500/30'
-      }`}
-    >
-      {isIncome ? (
-        <ArrowUpIcon className="w-6 h-6 text-white mx-auto" />
-      ) : (
-        <ArrowDownIcon className="w-6 h-6 text-white mx-auto" />
-      )}
-    </button>
-  );
-}
 
 export default function HomePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
