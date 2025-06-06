@@ -441,15 +441,12 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          <div className="animate-fade-in">
+          <div className="animate-fade-in z-50">
             <Statistics transactions={transactions} />
         </div>
         )}
         </div>
 
-      {/* Floating Action Buttons */}
-      <FloatingActionButton onClick={() => setIsIncomeModalOpen(true)} type="income" />
-      <FloatingActionButton onClick={() => setIsExpenseModalOpen(true)} type="expense" />
 
       {/* Modals */}
       <Modal
