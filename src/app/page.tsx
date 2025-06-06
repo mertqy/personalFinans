@@ -346,12 +346,12 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 safe-area-top safe-area-bottom">
       {/* Header */}
       <div className="glass px-4 pt-8 pb-6 animate-slide-up">
-        <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
           <div className="flex-1" />
           <div className="text-center">
             <h1 className="text-2xl font-bold text-white mb-2 animate-fade-in">Finans v1.4</h1>
             <BalanceCard balance={balance} />
-          </div>
+              </div>
           <div className="flex-1 flex justify-end">
             <div className="relative" ref={menuRef}>
               <button
@@ -369,8 +369,8 @@ export default function HomePage() {
               />
             </div>
           </div>
-        </div>
-      </div>
+            </div>
+          </div>
 
       {/* Ana İçerik */}
       <div className="px-4 pb-24">
@@ -401,13 +401,13 @@ export default function HomePage() {
                 <span className="text-sm text-gray-400 glass px-3 py-1 rounded-full">
                   {realTransactions.length}
                 </span>
-              </div>
-              
+            </div>
+
               {realTransactions.length === 0 ? (
                 <div className="text-center py-12 animate-bounce-in">
                   <div className="w-16 h-16 glass rounded-full flex items-center justify-center mx-auto mb-4 float">
                     <PlusIcon className="w-8 h-8 text-gray-400" />
-                  </div>
+              </div>
                   <p className="text-gray-400 mb-6 text-lg">İlk işleminizi ekleyin</p>
                   <div className="space-y-3 max-w-xs mx-auto">
                     <button
@@ -422,8 +422,8 @@ export default function HomePage() {
                     >
                       💸 Gider Ekle
                     </button>
-                  </div>
-                </div>
+            </div>
+          </div>
               ) : (
                 <div className="space-y-3">
                   {realTransactions
@@ -436,16 +436,16 @@ export default function HomePage() {
                         index={index}
                       />
                     ))}
-                </div>
+            </div>
               )}
             </div>
           </div>
         ) : (
           <div className="animate-fade-in">
             <Statistics transactions={transactions} />
-          </div>
+        </div>
         )}
-      </div>
+        </div>
 
       {/* Floating Action Buttons */}
       <FloatingActionButton onClick={() => setIsIncomeModalOpen(true)} type="income" />

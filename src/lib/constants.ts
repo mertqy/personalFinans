@@ -39,6 +39,12 @@ export const DEFAULT_CATEGORIES = [
     type: 'expense',
   },
   {
+    id: 'expense-pet',
+    name: 'Hayvan Bakımı',
+    icon: '🐶',
+    type: 'expense',
+  },
+  {
     id: 'expense-housing',
     name: 'Barınma',
     icon: '🏠',

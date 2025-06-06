@@ -59,7 +59,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} antialiased bg-gray-900 text-white overflow-x-hidden`}>
         <ThemeProvider>
-          {children}
+        {children}
         </ThemeProvider>
       </body>
     </html>
