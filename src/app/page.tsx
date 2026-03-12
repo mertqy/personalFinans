@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { PlusIcon, ArrowUpIcon, ArrowDownIcon, WalletIcon, Bars3Icon, HomeIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from 'react';
+import { PlusIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 import { formatCurrency, formatDate, generateId } from '@/lib/utils';
-import { Transaction } from '@/types';
+import type { Transaction, Account, CreditCard, Loan } from '@/types';
+import { transactionStorage, accountStorage, creditCardStorage, loanStorage } from '@/lib/storage';
 import Modal from '@/components/forms/Modal';
 import TransactionForm from '@/components/forms/TransactionForm';
-import Statistics from '@/components/Statistics';
 
 interface TransactionFormData {
   type: 'income' | 'expense';
@@ -16,270 +16,140 @@ interface TransactionFormData {
   date: string;
   isRecurring: boolean;
   recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  accountId?: string;
+  creditCardId?: string;
 }
 
-// Count-up animation hook
 function useCountUp(end: number, duration: number = 1000) {
   const [count, setCount] = useState(0);
-  
   useEffect(() => {
     let startTime: number;
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-      
-      // Easing function
       const easeOut = 1 - Math.pow(1 - progress, 3);
       setCount(Math.floor(end * easeOut));
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
+      if (progress < 1) requestAnimationFrame(animate);
     };
-    
     requestAnimationFrame(animate);
   }, [end, duration]);
-  
   return count;
 }
 
-// Haptic feedback (vibration)
 function useHapticFeedback() {
-  const triggerLight = () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate(50);
-    }
-  };
-  
-  const triggerMedium = () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate(100);
-    }
-  };
-  
-  const triggerSuccess = () => {
-    if ('vibrate' in navigator) {
+  const triggerSuccess = () => { 
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([100, 50, 100]);
     }
   };
-  
-  return { triggerLight, triggerMedium, triggerSuccess };
+  return { triggerSuccess };
 }
 
-function QuickAddButton({ 
-  type, 
-  onClick,
-  amount 
-}: { 
-  type: 'income' | 'expense'; 
-  onClick: () => void;
-  amount: number;
-}) {
-  const isIncome = type === 'income';
-  const { triggerLight } = useHapticFeedback();
-  const animatedAmount = useCountUp(amount, 800);
-  
-  const handleClick = () => {
-    triggerLight();
-    onClick();
-  };
-  
+function SummaryRow({ income, expenses }: { income: number; expenses: number }) {
   return (
-    <button
-      onClick={handleClick}
-      className={`flex-1 p-4 rounded-xl text-white font-semibold text-sm transition-all duration-300 
-        btn-bounce btn-glow card-hover animate-slide-up ${
-        isIncome 
-          ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400' 
-          : 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400'
-      }`}
-    >
-      <div className="flex items-center justify-center space-x-2">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 float ${
-          isIncome ? 'bg-green-400 shadow-lg shadow-green-400/30' : 'bg-red-400 shadow-lg shadow-red-400/30'
-        }`}>
-          {isIncome ? (
-            <ArrowUpIcon className="w-4 h-4 text-white" />
-          ) : (
-            <ArrowDownIcon className="w-4 h-4 text-white" />
-          )}
+    <div className="flex gap-4 mt-8">
+      <div className="flex-1 glass rounded-3xl p-5 border border-green-500/10 bg-green-500/5">
+        <div className="flex items-center gap-2 mb-1">
+           <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+              <ArrowUpIcon className="w-3.5 h-3.5 text-green-400" />
+           </div>
+           <p className="text-[10px] text-green-300/60 uppercase font-black tracking-widest">Gelir</p>
         </div>
-        <div>
-          <div className="text-xs opacity-90">{isIncome ? 'Gelir' : 'Gider'}</div>
-          <div className="text-sm font-bold animate-count-up">{formatCurrency(animatedAmount)}</div>
-        </div>
+        <p className="text-xl font-bold text-green-400 tracking-tight">{formatCurrency(income)}</p>
       </div>
-    </button>
+      <div className="flex-1 glass rounded-3xl p-5 border border-red-500/10 bg-red-500/5">
+        <div className="flex items-center gap-2 mb-1">
+           <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center">
+              <ArrowDownIcon className="w-3.5 h-3.5 text-red-400" />
+           </div>
+           <p className="text-[10px] text-red-300/60 uppercase font-black tracking-widest">Gider</p>
+        </div>
+        <p className="text-xl font-bold text-red-400 tracking-tight">{formatCurrency(expenses)}</p>
+      </div>
+    </div>
   );
 }
 
-function TransactionItem({ transaction, index }: { transaction: Transaction; index: number }) {
+function TransactionItem({ transaction, accounts, cards, index }: {
+  transaction: Transaction;
+  accounts: Account[];
+  cards: CreditCard[];
+  index: number;
+}) {
   const isIncome = transaction.type === 'income';
-  
+  const account = accounts.find((a) => a.id === transaction.accountId);
+  const card = cards.find((c) => c.id === transaction.creditCardId);
+
   return (
-    <div 
-      className={`flex items-center justify-between p-4 bg-gray-800 rounded-xl card-hover glass
-        animate-slide-right transition-all duration-300 stagger-${Math.min(index + 1, 4)}`}
-      style={{ animationDelay: `${index * 0.1}s` }}
+    <div
+      className={`flex items-center justify-between p-5 rounded-[2rem] glass-strong border border-gray-700/20 bg-gray-800/20 animate-slide-up stagger-${Math.min(index + 1, 4)}`}
+      style={{ animationDelay: `${index * 0.05}s` }}
     >
-      <div className="flex items-center space-x-3">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs transition-all duration-300 ${
-          isIncome ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
-        }`}>
-          {isIncome ? (
-            <ArrowUpIcon className="w-5 h-5" />
-          ) : (
-            <ArrowDownIcon className="w-5 h-5" />
-          )}
+      <div className="flex items-center gap-4">
+        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${isIncome ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+          {isIncome ? <ArrowUpIcon className="w-6 h-6" /> : <ArrowDownIcon className="w-6 h-6" />}
         </div>
         <div>
-          <p className="font-medium text-white text-sm">{transaction.category}</p>
-          <p className="text-xs text-gray-400">{formatDate(transaction.date)}</p>
+          <p className="font-black text-white text-base tracking-tight">{transaction.category}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{formatDate(transaction.date)}</p>
+            {account && (
+              <span className="text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-tighter" style={{ backgroundColor: `${account.color}20`, color: account.color }}>
+                {account.name}
+              </span>
+            )}
+            {card && (
+              <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-black uppercase tracking-tighter">
+                {card.name}
+              </span>
+            )}
+          </div>
         </div>
       </div>
-      <div className="text-right">
-        <p className={`font-bold text-sm animate-count-up ${
-          isIncome ? 'text-green-400' : 'text-red-400'
-        }`}>
-          {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
-        </p>
-      </div>
+      <p className={`font-black text-lg tracking-tighter ${isIncome ? 'text-green-400' : 'text-red-400'}`}>
+        {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
+      </p>
     </div>
   );
 }
-
-function BalanceCard({ balance }: { balance: number }) {
-  const animatedBalance = useCountUp(Math.abs(balance), 1200);
-  const isPositive = balance >= 0;
-  
-  return (
-    <div className="text-center animate-bounce-in">
-      <div className={`inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-2xl glass-strong 
-        ${isPositive ? 'border-green-500/30' : 'border-red-500/30'}`}>
-        <WalletIcon className={`w-5 h-5 float ${isPositive ? 'text-green-400' : 'text-red-400'}`} />
-        <span className={`text-xl font-bold animate-count-up ${
-          isPositive ? 'text-green-400' : 'text-red-400'
-        }`}>
-          {isPositive ? '' : '-'}{formatCurrency(animatedBalance)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function MenuDropdown({ 
-  isOpen, 
-  onClose, 
-  currentView, 
-  onViewChange 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void;
-  currentView: 'home' | 'stats';
-  onViewChange: (view: 'home' | 'stats') => void;
-}) {
-  if (!isOpen) return null;
-
-  return (
-    <div className="absolute top-full right-0 mt-2 w-48 glass-strong rounded-xl shadow-xl border border-gray-700/50 z-50 animate-slide-up">
-      <div className="py-2">
-        <button
-          onClick={() => {
-            onViewChange('home');
-            onClose();
-          }}
-          className={`w-full px-4 py-3 text-left hover:bg-gray-700/50 transition-all duration-200 flex items-center space-x-3 text-sm spring ${
-            currentView === 'home' ? 'bg-gray-700/50 text-blue-400' : 'text-white'
-          }`}
-        >
-          <HomeIcon className="w-5 h-5" />
-          <span>Ana Sayfa</span>
-        </button>
-        
-        <button
-          onClick={() => {
-            onViewChange('stats');
-            onClose();
-          }}
-          className={`w-full px-4 py-3 text-left hover:bg-gray-700/50 transition-all duration-200 flex items-center space-x-3 text-sm spring ${
-            currentView === 'stats' ? 'bg-gray-700/50 text-blue-400' : 'text-white'
-          }`}
-        >
-          <ChartBarIcon className="w-5 h-5" />
-          <span>İstatistikler</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
 
 export default function HomePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [cards, setCards] = useState<CreditCard[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'home' | 'stats'>('home');
   const [isLoading, setIsLoading] = useState(true);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const { triggerSuccess } = useHapticFeedback();
+  const [isClient, setIsClient] = useState(false);
+  const haptic = useHapticFeedback();
 
   useEffect(() => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsClient(true);
-      const savedTransactions = localStorage.getItem('transactions');
-      if (savedTransactions) {
-        try {
-          const parsed = JSON.parse(savedTransactions);
-          setTransactions(parsed.map((t: Transaction) => ({
-            ...t,
-            date: new Date(t.date)
-          })));
-        } catch (error) {
-          console.error('Error loading transactions:', error);
-        }
-      }
-      setIsLoading(false);
-    }, 1000);
+    setIsClient(true);
+    const txs = transactionStorage.getAll();
+    const accs = accountStorage.getAll();
+    const cds = creditCardStorage.getAll();
+    const lns = loanStorage.getAll();
+    setTransactions(txs);
+    setAccounts(accs);
+    setCards(cds);
+    setLoans(lns);
+    setIsLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (isClient && transactions.length > 0) {
-      localStorage.setItem('transactions', JSON.stringify(transactions));
-    }
-  }, [transactions, isClient]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    }
-
-    if (isMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [isMenuOpen]);
-
-  const realTransactions = isClient ? transactions.filter(t => !t.isPlanned) : [];
-  const totalIncome = realTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const realTransactions = transactions.filter((t) => !t.isPlanned);
+  const totalIncome = realTransactions.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = realTransactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   
-  const totalExpenses = realTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const accountsTotal = accounts.reduce((s, a) => s + a.balance, 0);
+  const cardsDebt = cards.reduce((s, c) => s + c.currentDebt, 0);
+  const loansDebt = loans.reduce((s, l) => s + l.remainingAmount, 0);
   
-  const balance = totalIncome - totalExpenses;
+  const netWorth = accountsTotal - cardsDebt - loansDebt; 
+
+  const netWorthAnimated = useCountUp(netWorth, 1500);
 
   const handleSubmit = async (data: TransactionFormData) => {
-    if (!isClient) return;
-    
     const newTransaction: Transaction = {
       id: generateId(),
       userId: 'local-user',
@@ -290,160 +160,124 @@ export default function HomePage() {
       date: new Date(data.date),
       isRecurring: data.isRecurring,
       recurringFrequency: data.recurringFrequency,
+      accountId: data.accountId,
+      creditCardId: data.creditCardId,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    
-    setTransactions(prev => [newTransaction, ...prev]);
+
+    if (data.accountId) {
+      accountStorage.adjustBalance(data.accountId, data.type === 'income' ? data.amount : -data.amount);
+      setAccounts(accountStorage.getAll());
+    }
+    if (data.creditCardId && data.type === 'expense') {
+      creditCardStorage.adjustDebt(data.creditCardId, data.amount);
+      setCards(creditCardStorage.getAll());
+    }
+
+    const updated = transactionStorage.add(newTransaction);
+    setTransactions(updated);
     setIsIncomeModalOpen(false);
     setIsExpenseModalOpen(false);
-    triggerSuccess();
+    haptic.triggerSuccess();
   };
 
-  if (isLoading) {
+  if (!isClient || isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center space-y-4 animate-fade-in">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto animate-pulse-custom">
-            <WalletIcon className="w-6 h-6 text-blue-400" />
-          </div>
-          <p className="text-gray-400 text-sm animate-count-up">Finans yükleniyor...</p>
-        </div>
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 safe-area-top safe-area-bottom">
-      {/* Header */}
-      <div className="glass px-4 pt-8 pb-6 animate-slide-up mb-8">
-          <div className="flex items-center justify-between">
-          <div className="flex-1" />
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-2 animate-fade-in">Finans v1.4</h1>
-            <BalanceCard balance={balance} />
-              </div>
-          <div className="flex-1 flex justify-end">
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-3 rounded-xl glass-strong hover:bg-gray-700/50 transition-all duration-200 btn-bounce"
-              >
-                <Bars3Icon className="w-6 h-6 text-white" />
-              </button>
-              
-              <MenuDropdown
-                isOpen={isMenuOpen}
-                onClose={() => setIsMenuOpen(false)}
-                currentView={currentView}
-                onViewChange={setCurrentView}
-              />
-            </div>
-          </div>
-            </div>
-          </div>
-
-      {/* Ana İçerik */}
-      <div className="px-4 pb-24" style={{ paddingTop: '40px' }}>
-        {currentView === 'home' ? (
-          <div className="animate-fade-in">
-            {/* Quick Add Buttons */}
-            <div className="mb-6">
-              <div className="flex space-x-4">
-                <QuickAddButton
-                  type="income"
-                  onClick={() => setIsIncomeModalOpen(true)}
-                  amount={totalIncome}
-                />
-                <QuickAddButton
-                  type="expense"
-                  onClick={() => setIsExpenseModalOpen(true)}
-                  amount={totalExpenses}
-                />
-              </div>
-            </div>
-
-            {/* Transactions List */}
-            <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">
-                  Son İşlemler
-                </h2>
-                <span className="text-sm text-gray-400 glass px-3 py-1 rounded-full">
-                  {realTransactions.length}
-                </span>
-            </div>
-
-              {realTransactions.length === 0 ? (
-                <div className="text-center py-12 animate-bounce-in">
-                  <div className="w-16 h-16 glass rounded-full flex items-center justify-center mx-auto mb-4 float">
-                    <PlusIcon className="w-8 h-8 text-gray-400" />
-              </div>
-                  <p className="text-gray-400 mb-6 text-lg">İlk işleminizi ekleyin</p>
-                  <div className="space-y-3 max-w-xs mx-auto">
-                    <button
-                      onClick={() => setIsIncomeModalOpen(true)}
-                      className="w-full bg-gradient-to-r from-green-600 to-green-500 text-white py-3 rounded-xl font-semibold btn-bounce btn-glow"
-                    >
-                      💰 Gelir Ekle
-                    </button>
-                    <button
-                      onClick={() => setIsExpenseModalOpen(true)}
-                      className="w-full bg-gradient-to-r from-red-600 to-red-500 text-white py-3 rounded-xl font-semibold btn-bounce btn-glow"
-                    >
-                      💸 Gider Ekle
-                    </button>
-            </div>
-          </div>
-              ) : (
-                <div className="space-y-3">
-                  {realTransactions
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .slice(0, 15)
-                    .map((transaction, index) => (
-                      <TransactionItem
-                        key={transaction.id}
-                        transaction={transaction}
-                        index={index}
-                      />
-                    ))}
-            </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="animate-fade-in z-50">
-            <Statistics transactions={transactions} />
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-900 to-[#0a0a0f] pb-32">
+      {/* Mobile Top Bar */}
+      <div className="px-6 pt-14 pb-10 animate-fade-in relative overflow-hidden">
+        <div className="relative z-10 text-center">
+            <h1 className="text-2xl font-black text-white/40 mb-10 tracking-tighter uppercase italic">Finans</h1>
+            <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.2em] mb-2">Net Varlık</p>
+            <p className={`text-6xl font-black tracking-tighter ${netWorth >= 0 ? 'text-white' : 'text-red-500'}`}>
+              {formatCurrency(netWorthAnimated)}
+            </p>
+            <SummaryRow income={totalIncome} expenses={totalExpenses} />
         </div>
-        )}
+        
+        <div className="absolute -top-20 -left-20 w-80 h-80 bg-blue-600/10 rounded-full blur-[120px]" />
+        <div className="absolute -top-20 -right-20 w-80 h-80 bg-purple-600/10 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="px-6 space-y-8">
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 gap-4">
+           <button 
+             onClick={() => setIsIncomeModalOpen(true)}
+             className="bg-green-500 text-white rounded-[2rem] p-6 font-black text-lg btn-bounce shadow-xl shadow-green-500/20"
+           >
+             Gelir Ekle
+           </button>
+           <button 
+             onClick={() => setIsExpenseModalOpen(true)}
+             className="bg-red-500 text-white rounded-[2rem] p-6 font-black text-lg btn-bounce shadow-xl shadow-red-500/20"
+           >
+             Gider Ekle
+           </button>
         </div>
 
+        <div>
+          <div className="flex items-center justify-between mb-6 px-1">
+            <h2 className="text-xl font-black text-white tracking-tight">Son İşlemler</h2>
+            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest glass px-3 py-1 rounded-full">{realTransactions.length} işlem</span>
+          </div>
+
+          {realTransactions.length === 0 ? (
+            <div className="text-center py-20 bg-gray-800/20 rounded-[3rem] border border-gray-700/10 animate-fade-in">
+              <div className="w-20 h-20 glass rounded-[2rem] flex items-center justify-center mx-auto mb-6 float border border-gray-700/30">
+                <PlusIcon className="w-10 h-10 text-gray-600" />
+              </div>
+              <p className="text-gray-500 font-bold mb-1 px-10 leading-tight">Henüz bir işlem yapmadın</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {realTransactions
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 50)
+                .map((transaction, index) => (
+                  <TransactionItem
+                    key={transaction.id}
+                    transaction={transaction}
+                    accounts={accounts}
+                    cards={cards}
+                    index={index}
+                  />
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Modals */}
-      <Modal
-        isOpen={isIncomeModalOpen}
-        onClose={() => setIsIncomeModalOpen(false)}
-        title="💰 Gelir Ekle"
-      >
-        <TransactionForm
-          type="income"
-          onSubmit={handleSubmit}
-          onCancel={() => setIsIncomeModalOpen(false)}
-        />
-      </Modal>
-
-      <Modal
-        isOpen={isExpenseModalOpen}
-        onClose={() => setIsExpenseModalOpen(false)}
-        title="💸 Gider Ekle"
-      >
-        <TransactionForm
-          type="expense"
-          onSubmit={handleSubmit}
-          onCancel={() => setIsExpenseModalOpen(false)}
-        />
-      </Modal>
+      {isIncomeModalOpen && (
+        <Modal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} title="💰 Gelir Ekle">
+          <TransactionForm
+            type="income"
+            onSubmit={handleSubmit}
+            onCancel={() => setIsIncomeModalOpen(false)}
+            accounts={accounts}
+          />
+        </Modal>
+      )}
+      {isExpenseModalOpen && (
+        <Modal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} title="💸 Gider Ekle">
+          <TransactionForm
+            type="expense"
+            onSubmit={handleSubmit}
+            onCancel={() => setIsExpenseModalOpen(false)}
+            accounts={accounts.filter(a => a.type !== 'savings')}
+            creditCards={cards}
+          />
+        </Modal>
+      )}
     </div>
   );
 }

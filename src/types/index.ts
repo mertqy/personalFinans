@@ -17,8 +17,60 @@ export interface Transaction {
   isRecurring?: boolean;
   recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
   isPlanned?: boolean;
+  accountId?: string;
+  creditCardId?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  type: 'cash' | 'bank' | 'savings' | 'investment';
+  balance: number;
+  currency: string;
+  color: string;
+  icon: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreditCard {
+  id: string;
+  name: string;
+  bank: string;
+  accountId: string; // Linked bank account
+  limit: number;
+  currentDebt: number;
+  statementDay: number;
+  dueDay: number;
+  color: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Loan {
+  id: string;
+  name: string;
+  type: 'personal' | 'mortgage' | 'auto' | 'other';
+  totalAmount: number;
+  remainingAmount: number;
+  monthlyPayment: number;
+  interestRate: number;
+  startDate: Date;
+  endDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Transfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  date: Date;
+  description?: string;
+  createdAt: Date;
 }
 
 export interface Category {
@@ -86,4 +138,4 @@ export interface ChartData {
     backgroundColor?: string[];
     borderColor?: string[];
   }[];
-} 
+}

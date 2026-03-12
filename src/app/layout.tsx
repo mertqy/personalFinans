@@ -1,18 +1,25 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import BottomNavigation from "@/components/BottomNavigation";
 
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#111827",
+};
+
 export const metadata: Metadata = {
   title: "Finans - Gelir Gider Takibi",
   description: "Kolay gelir ve gider takibi için mobil uygulama",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
-  themeColor: "#1f2937",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -31,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="tr" className="dark">
+    <html lang="tr" className="dark" style={{ colorScheme: 'dark' }}>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -57,9 +64,12 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} antialiased bg-gray-900 text-white overflow-x-hidden`}>
+      <body className={`${inter.className} antialiased bg-gray-900 text-white overflow-x-hidden select-none`}>
         <ThemeProvider>
-        {children}
+          <main className="pb-20">
+            {children}
+          </main>
+          <BottomNavigation />
         </ThemeProvider>
       </body>
     </html>
