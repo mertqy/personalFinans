@@ -166,13 +166,14 @@ export default function HomePage() {
       updatedAt: new Date(),
     };
 
-    if (data.accountId) {
-      accountStorage.adjustBalance(data.accountId, data.type === 'income' ? data.amount : -data.amount);
-      setAccounts(accountStorage.getAll());
-    }
     if (data.creditCardId && data.type === 'expense') {
+      // Sadece kredi kartı borcunu artır (hesap bakiyesi ödeme yapıldığında düşer)
       creditCardStorage.adjustDebt(data.creditCardId, data.amount);
       setCards(creditCardStorage.getAll());
+    } else if (data.accountId) {
+      // Doğrudan hesaptan (nakit/banka) işlem
+      accountStorage.adjustBalance(data.accountId, data.type === 'income' ? data.amount : -data.amount);
+      setAccounts(accountStorage.getAll());
     }
 
     const updated = transactionStorage.add(newTransaction);
@@ -195,20 +196,18 @@ export default function HomePage() {
       {/* Mobile Top Bar */}
       <div className="px-6 pt-14 pb-10 animate-fade-in relative overflow-hidden">
         <div className="relative z-10 text-center">
-            <div className="flex justify-center mb-10">
-              <h1 className="text-2xl font-black text-white/40 tracking-tighter uppercase italic">Finans</h1>
-            </div>
             <button 
               onClick={() => {
-                if(confirm('Tüm verileriniz silinecek! Onaylıyor musunuz?')) {
+                if(confirm('DİKKAT: Tüm verileriniz (hesaplar, kartlar, işlemler) kalıcı olarak silinecektir. Emin misiniz?')) {
                   localStorage.clear();
                   window.location.reload();
                 }
               }}
-              className="absolute -top-10 -right-2 text-[8px] text-gray-700 uppercase font-bold tracking-widest bg-gray-600/5 px-3 py-2 rounded-full hover:bg-red-500/10 hover:text-red-500/60 transition-all border border-transparent hover:border-red-500/20"
+              className="mb-8 w-full py-4 rounded-2xl bg-red-500/20 border-2 border-red-500 text-red-500 font-black text-sm uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all btn-bounce shadow-2xl shadow-red-500/20"
             >
-              Verileri Sıfırla
+              ⚠ TÜM VERİLERİ SIFIRLA VE SİSTEMİ YENİLE
             </button>
+
             <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.2em] mb-2">Net Varlık</p>
             <p className={`text-6xl font-black tracking-tighter ${netWorth >= 0 ? 'text-white' : 'text-red-500'}`}>
               {formatCurrency(netWorthAnimated)}
@@ -291,6 +290,9 @@ export default function HomePage() {
           />
         </Modal>
       )}
+      <div className="text-center pb-10 opacity-10">
+        <span className="text-[10px] font-black tracking-tighter text-white">v1.1 - DEBUG MODE</span>
+      </div>
     </div>
   );
 }

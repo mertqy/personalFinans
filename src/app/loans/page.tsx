@@ -88,19 +88,18 @@ function LoanCard({ loan, onDelete, onPay }: { loan: Loan; onDelete: (id: string
 }
 
 function AddLoanModal({ accounts, onClose, onAdd }: { accounts: Account[]; onClose: () => void; onAdd: (loan: Loan) => void }) {
-  const [bank, setBank] = useState('');
   const [bankAccountId, setBankAccountId] = useState(accounts[0]?.id || '');
   const [type, setType] = useState<Loan['type']>('personal');
   const [principalAmount, setPrincipalAmount] = useState('');
   const [interestRate, setInterestRate] = useState('');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState('');
+  const [durationMonths, setDurationMonths] = useState('');
   
   const [calculatedTotal, setCalculatedTotal] = useState(0);
   const [calculatedMonthly, setCalculatedMonthly] = useState(0);
 
   useEffect(() => {
-    if (!principalAmount || !endDate || !startDate) {
+    if (!principalAmount || !durationMonths || !startDate) {
       setCalculatedMonthly(0);
       setCalculatedTotal(0);
       return;
@@ -113,13 +112,9 @@ function AddLoanModal({ accounts, onClose, onAdd }: { accounts: Account[]; onClo
     const pr = parseFloat(cleanPrincipal);
     const ir = parseFloat(cleanRate || '0') / 100; // Monthly rate
     const start = new Date(startDate);
-    const end = new Date(endDate);
+    const months = parseInt(durationMonths, 10);
     
-    if (isNaN(pr) || isNaN(start.getTime()) || isNaN(end.getTime())) return;
-
-    // Calculate months
-    let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-    if (months <= 0) months = 1;
+    if (isNaN(pr) || isNaN(start.getTime()) || isNaN(months) || months <= 0) return;
 
     let monthly = 0;
     if (ir > 0) {
@@ -134,26 +129,30 @@ function AddLoanModal({ accounts, onClose, onAdd }: { accounts: Account[]; onClo
 
     setCalculatedMonthly(monthly);
     setCalculatedTotal(monthly * months);
-  }, [principalAmount, interestRate, startDate, endDate]);
+  }, [principalAmount, interestRate, startDate, durationMonths]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bankAccountId || !endDate) return;
+    if (!bankAccountId || !durationMonths) return;
     
     const selectedAccount = accounts.find(a => a.id === bankAccountId);
     
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setMonth(start.getMonth() + parseInt(durationMonths, 10));
+
     const loan: Loan = {
       id: generateId(),
-      name: bank || `${selectedAccount?.name} Kredisi`,
-      bank: bank || selectedAccount?.name || 'Banka',
+      name: `${selectedAccount?.name} Kredisi`,
+      bank: selectedAccount?.name || 'Banka',
       type,
       accountId: bankAccountId,
       totalAmount: calculatedTotal,
       remainingAmount: calculatedTotal,
       monthlyPayment: calculatedMonthly,
       interestRate: parseFloat(interestRate || '0'),
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: start,
+      endDate: end,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -171,8 +170,18 @@ function AddLoanModal({ accounts, onClose, onAdd }: { accounts: Account[]; onClo
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Banka Adı / Şube (Etiket)</label>
-            <input value={bank} onChange={(e) => setBank(e.target.value)} placeholder="örn. Akbank / Beşiktaş" className="w-full bg-gray-800/80 border border-gray-700 rounded-xl p-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none" style={{ userSelect: 'text', WebkitUserSelect: 'text' }} required />
+            <label className="block text-sm text-gray-400 mb-2">Çekilen Banka Hesabı</label>
+            <select 
+              value={bankAccountId} 
+              onChange={(e) => setBankAccountId(e.target.value)} 
+              className="w-full bg-gray-800/80 border border-gray-700 rounded-xl p-3 text-white focus:border-orange-500 focus:outline-none"
+              required
+            >
+              <option value="">Hesap seçin...</option>
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.name} — {formatCurrency(acc.balance)}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-2">Kredi Türü</label>
@@ -195,28 +204,17 @@ function AddLoanModal({ accounts, onClose, onAdd }: { accounts: Account[]; onClo
               <input value={interestRate} onChange={(e) => setInterestRate(e.target.value)} type="number" step="0.01" placeholder="0.00" className="w-full bg-gray-800/80 border border-gray-700 rounded-xl p-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none" style={{ userSelect: 'text', WebkitUserSelect: 'text' }} required />
             </div>
           </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Ödeme Yapılacak (Bağlı) Hesap</label>
-            <select 
-              value={bankAccountId} 
-              onChange={(e) => setBankAccountId(e.target.value)} 
-              className="w-full bg-gray-800/80 border border-gray-700 rounded-xl p-3 text-white focus:border-orange-500 focus:outline-none"
-              required
-            >
-              <option value="">Hesap seçin...</option>
-              {accounts.map(acc => (
-                <option key={acc.id} value={acc.id}>{acc.name} — {formatCurrency(acc.balance)}</option>
-              ))}
-            </select>
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-400 mb-2">Başlangıç</label>
               <input value={startDate} onChange={(e) => setStartDate(e.target.value)} type="date" className="w-full bg-gray-800/80 border border-gray-700 rounded-xl p-3 text-white focus:border-orange-500 focus:outline-none" style={{ colorScheme: 'dark' }} />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Bitiş</label>
-              <input value={endDate} onChange={(e) => setEndDate(e.target.value)} type="date" className="w-full bg-gray-800/80 border border-gray-700 rounded-xl p-3 text-white focus:border-orange-500 focus:outline-none" style={{ colorScheme: 'dark' }} required />
+              <label className="block text-sm text-gray-400 mb-2">Vade (Ay)</label>
+              <div className="relative">
+                <input value={durationMonths} onChange={(e) => setDurationMonths(e.target.value)} type="number" min="1" max="360" placeholder="Örn: 12" className="w-full bg-gray-800/80 border border-gray-700 rounded-xl p-3 text-white focus:border-orange-500 focus:outline-none pr-10" required />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">Ay</span>
+              </div>
             </div>
           </div>
 

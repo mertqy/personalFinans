@@ -55,6 +55,8 @@ export default function TransactionForm({
 
   const isRecurring = watch('isRecurring');
   const watchedCreditCardId = watch('creditCardId');
+  const watchedAccountId = watch('accountId');
+  const availableLinkedCards = creditCards.filter(c => c.accountId === watchedAccountId);
   const categories = DEFAULT_CATEGORIES.filter(cat => cat.type === type);
 
   const handleFormSubmit = async (data: TransactionFormData) => {
@@ -62,7 +64,7 @@ export default function TransactionForm({
       await onSubmit({
         ...data,
         accountId: data.accountId || undefined,
-        creditCardId: data.creditCardId || undefined,
+        creditCardId: data.creditCardId === 'none' ? undefined : (data.creditCardId || undefined),
       });
     } catch (error) {
       console.error('Form submission error:', error);
@@ -118,53 +120,58 @@ export default function TransactionForm({
       </div>
 
       {/* Hesap Seçimi */}
-      {accounts.length > 0 && !watchedCreditCardId && (
-        <div>
-          <label htmlFor="accountId" className="block text-sm font-medium text-white mb-1">
-            {type === 'income' ? 'Giriş Hesabı' : 'Hesap'} <span className="text-gray-400 font-normal">({type === 'income' ? 'Zorunlu' : 'Opsiyonel'})</span>
-          </label>
-          <select
-            id="accountId"
-            {...register('accountId', { 
-              validate: (val) => {
-                if (type === 'income' && !val) return 'Gelir için bir hesap seçmelisiniz';
-                if (type === 'expense' && !val && !watchedCreditCardId) return 'Gider için bir hesap veya kart seçmelisiniz';
-                return true;
-              }
-            })}
-            className={`w-full px-3 py-2 border ${errors.accountId ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-white bg-gray-800`}
-          >
-            <option value="">Hesap seçin...</option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.icon} {account.name} — {formatCurrency(account.balance)}
-              </option>
-            ))}
-          </select>
-          {errors.accountId && (
-            <p className="mt-1 text-xs text-red-400">{errors.accountId.message}</p>
-          )}
-        </div>
-      )}
+      <div>
+        <label htmlFor="accountId" className="block text-sm font-medium text-white mb-1">
+          {type === 'income' ? 'Giriş Hesabı' : 'Hangi Hesaptan Çıkacak'} <span className="font-bold text-red-400 text-xs">(Zorunlu)</span>
+        </label>
+        <select
+          id="accountId"
+          {...register('accountId', { 
+            validate: (val) => {
+              if (!val) return 'Lütfen bir işlem hesabı seçin.';
+              return true;
+            }
+          })}
+          className={`w-full px-3 py-2 border ${errors.accountId ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-white bg-gray-800`}
+        >
+          <option value="">{accounts.length === 0 ? '❌ Önce Hesaplar sekmesinden bir hesap oluşturun!' : 'Hesap seçin...'}</option>
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.icon} {account.name} — {formatCurrency(account.balance)}
+            </option>
+          ))}
+        </select>
+        {errors.accountId && (
+          <p className="mt-1 text-xs text-red-400 font-bold">{errors.accountId.message}</p>
+        )}
+      </div>
 
-      {/* Kredi Kartı Seçimi (sadece gider için) */}
-      {type === 'expense' && creditCards.length > 0 && (
-        <div>
+      {/* Kredi Kartı Seçimi (sadece gider için ve seçili hesaba kart bağlıysa) */}
+      {type === 'expense' && watchedAccountId && availableLinkedCards.length > 0 && (
+        <div className="animate-slide-up">
           <label htmlFor="creditCardId" className="block text-sm font-medium text-white mb-1">
-            Kredi Kartı <span className="text-gray-400 font-normal">(isteğe bağlı)</span>
+            Ödeme Yöntemi <span className="text-gray-400 font-normal">(Zorunlu)</span>
           </label>
           <select
             id="creditCardId"
-            {...register('creditCardId')}
-            className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-white bg-gray-800"
+            {...register('creditCardId', {
+              required: 'Lütfen bir harcama/ödeme yöntemi seçin'
+            })}
+            className={`w-full px-3 py-2 border ${errors.creditCardId ? 'border-red-500' : 'border-gray-600'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-white bg-gray-800`}
           >
-            <option value="">Kart seç...</option>
-            {creditCards.map((card) => (
-              <option key={card.id} value={card.id}>
-                💳 {card.name} — {card.bank}
-              </option>
-            ))}
+            <option value="">Harcama Yöntemi Seçin...</option>
+            <option value="none" className="font-bold text-blue-400">💵 Doğrudan Hesap Bakiyesinden Düş</option>
+            <optgroup label="💳 Veya Kredi Kartından Çek">
+              {availableLinkedCards.map((card) => (
+                <option key={card.id} value={card.id}>
+                   {card.name} (Limitten Düş)
+                </option>
+              ))}
+            </optgroup>
           </select>
+          {errors.creditCardId && (
+            <p className="mt-1 text-xs text-red-400 font-bold">{errors.creditCardId.message}</p>
+          )}
         </div>
       )}
 
