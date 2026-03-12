@@ -195,7 +195,20 @@ export default function HomePage() {
       {/* Mobile Top Bar */}
       <div className="px-6 pt-14 pb-10 animate-fade-in relative overflow-hidden">
         <div className="relative z-10 text-center">
-            <h1 className="text-2xl font-black text-white/40 mb-10 tracking-tighter uppercase italic">Finans</h1>
+            <div className="flex justify-center mb-10">
+              <h1 className="text-2xl font-black text-white/40 tracking-tighter uppercase italic">Finans</h1>
+            </div>
+            <button 
+              onClick={() => {
+                if(confirm('Tüm verileriniz silinecek! Onaylıyor musunuz?')) {
+                  localStorage.clear();
+                  window.location.reload();
+                }
+              }}
+              className="absolute -top-10 -right-2 text-[8px] text-gray-700 uppercase font-bold tracking-widest bg-gray-600/5 px-3 py-2 rounded-full hover:bg-red-500/10 hover:text-red-500/60 transition-all border border-transparent hover:border-red-500/20"
+            >
+              Verileri Sıfırla
+            </button>
             <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.2em] mb-2">Net Varlık</p>
             <p className={`text-6xl font-black tracking-tighter ${netWorth >= 0 ? 'text-white' : 'text-red-500'}`}>
               {formatCurrency(netWorthAnimated)}

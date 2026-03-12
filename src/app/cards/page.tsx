@@ -340,10 +340,11 @@ export default function CardsPage() {
       id: generateId(),
       userId: 'local-user',
       type: 'expense',
-      amount: amount,
+      amount: Number(amount),
       category: 'Kredi Kartı Ödemesi',
       description: `${card.name} Borç Ödemesi`,
       date: new Date(),
+      isPlanned: false, // Ana ekranda gözükmesi için zorunlu
       accountId: card.accountId,
       creditCardId: card.id,
       createdAt: new Date(),

@@ -52,7 +52,9 @@ export interface CreditCard {
 export interface Loan {
   id: string;
   name: string;
+  bank: string;
   type: 'personal' | 'mortgage' | 'auto' | 'other';
+  accountId: string; // Linked bank account for payments
   totalAmount: number;
   remainingAmount: number;
   monthlyPayment: number;
