@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import BottomNavigation from "@/components/BottomNavigation";
+import { Analytics } from "@vercel/analytics/react";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -46,7 +47,6 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="format-detection" content="telephone=no" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
-        {/* Service Worker Disabled for Debugging
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -64,7 +64,7 @@ export default function RootLayout({
             `,
           }}
         />
-        */}
+        *
       </head>
       <body className={`${inter.className} antialiased bg-gray-900 text-white overflow-x-hidden select-none`}>
         <ThemeProvider>
@@ -72,6 +72,7 @@ export default function RootLayout({
             {children}
           </main>
           <BottomNavigation />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
