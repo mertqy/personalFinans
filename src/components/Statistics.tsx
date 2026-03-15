@@ -10,6 +10,11 @@ import {
   ChartPieIcon,
   BanknotesIcon 
 } from '@heroicons/react/24/outline';
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
+  AreaChart, Area, LineChart, Line, CartesianGrid
+} from 'recharts';
 
 interface StatisticsProps {
   transactions: Transaction[];
@@ -80,7 +85,7 @@ function StatCard({
 function SectionCard({ title, children, delay = 0, icon: Icon }: { title: string; children: React.ReactNode; delay?: number; icon?: React.ElementType }) {
   return (
     <div 
-      className="p-8 rounded-[2.5rem] glass-strong border border-gray-700/20 bg-gray-800/10 animate-slide-up"
+      className="p-8 rounded-[2.5rem] glass-strong border border-gray-700/20 bg-gray-800/10 animate-slide-up overflow-hidden"
       style={{ animationDelay: `${delay}s` }}
     >
       <div className="flex items-center gap-3 mb-8">
@@ -91,6 +96,8 @@ function SectionCard({ title, children, delay = 0, icon: Icon }: { title: string
     </div>
   );
 }
+
+const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
 
 export default function Statistics({ transactions }: StatisticsProps) {
   const [isClient, setIsClient] = useState(false);
@@ -111,8 +118,10 @@ export default function Statistics({ transactions }: StatisticsProps) {
   const yearlyIncome = yearlyTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const yearlyExpenses = yearlyTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
 
-  const monthlyData: {month: string, income: number, expenses: number, net: number}[] = [];
-  for (let i = 4; i >= 0; i--) {
+  // Generate Monthly Data for Bar & Line Charts
+  const monthlyData: {month: string, income: number, expenses: number, net: number, cumulative: number}[] = [];
+  let runningCumulative = 0;
+  for (let i = 5; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
     const mtx = realTransactions.filter(t => {
@@ -121,26 +130,69 @@ export default function Statistics({ transactions }: StatisticsProps) {
     });
     const inc = mtx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const exp = mtx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    monthlyData.push({ month: d.toLocaleDateString('tr-TR', { month: 'short' }), income: inc, expenses: exp, net: inc - exp });
+    const net = inc - exp;
+    runningCumulative += net;
+    monthlyData.push({ 
+      month: d.toLocaleDateString('tr-TR', { month: 'short' }).toUpperCase(), 
+      income: inc, 
+      expenses: exp, 
+      net: net,
+      cumulative: runningCumulative
+    });
   }
 
+  // Generate Category Data for Pie Check (Donut)
   const categoryData = realTransactions.filter(t => t.type === 'expense').reduce((acc, t) => {
     acc[t.category] = (acc[t.category] || 0) + t.amount;
     return acc;
   }, {} as Record<string, number>);
 
-  const topCategories = Object.entries(categoryData).sort(([,a], [,b]) => b - a).slice(0, 5);
-  const maxCategoryAmount = Math.max(...Object.values(categoryData), 1);
+  const pieData = Object.entries(categoryData)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5); // Top 5 categories
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl shadow-xl">
+          <p className="text-white font-bold mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm font-medium" style={{ color: entry.color }}>
+              {entry.name === 'income' ? 'Gelir: ' : entry.name === 'expenses' ? 'Gider: ' : entry.name === 'net' ? 'Net: ' : entry.name === 'cumulative' ? 'Bakiye: ' : ''}
+              {formatCurrency(entry.value)}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomPieTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-800 border border-gray-700 p-3 rounded-xl shadow-xl">
+          <p className="text-white font-bold text-sm">{payload[0].name}</p>
+          <p className="text-sm font-medium" style={{ color: payload[0].payload.fill }}>
+            {formatCurrency(payload[0].value)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   if (!isClient) return null;
 
   return (
-    <div className="space-y-10 animate-fade-in pb-20">
+    <div className="space-y-8 animate-fade-in pb-20">
       <div className="pt-8 mb-4 px-2">
         <h1 className="text-3xl font-black text-white mb-2 tracking-tighter">Analiz</h1>
         <p className="text-gray-500 text-sm font-medium tracking-tight">Finansal yolculuğunu detaylıca incele.</p>
       </div>
 
+      {/* İstatistik Kartları */}
       <div className="grid grid-cols-2 gap-4">
         <StatCard title="Toplam Gelir" value={totalIncome} icon={ArrowTrendingUpIcon} color="green" trend="up" delay={0.1} />
         <StatCard title="Toplam Gider" value={totalExpenses} icon={ArrowTrendingDownIcon} color="red" trend="down" delay={0.2} />
@@ -148,51 +200,86 @@ export default function Statistics({ transactions }: StatisticsProps) {
         <StatCard title="Tasarruf" value={`%${savingsRate.toFixed(1)}`} icon={ChartPieIcon} color="purple" delay={0.4} />
       </div>
 
-      <SectionCard title="Aylık Trend" icon={ChartBarIcon} delay={0.5}>
-         <div className="space-y-6">
-            {monthlyData.map((m) => (
-              <div key={m.month} className="flex items-end gap-3">
-                 <div className="w-10 text-[10px] font-black uppercase text-gray-500 pb-1">{m.month}</div>
-                 <div className="flex-1 flex flex-col gap-1.5 pb-1">
-                    <div 
-                      className="h-3 bg-green-500 rounded-full transition-all duration-1000 origin-left"
-                      style={{ width: `${Math.max((m.income / (Math.max(m.income, m.expenses, 1))) * 100, 2)}%` }}
-                    />
-                    <div 
-                      className="h-3 bg-red-500 rounded-full transition-all duration-1000 origin-left"
-                      style={{ width: `${Math.max((m.expenses / (Math.max(m.income, m.expenses, 1))) * 100, 2)}%` }}
-                    />
-                 </div>
-                 <div className="w-16 text-right text-[10px] font-black text-white">
-                    {formatCurrency(m.net)}
-                 </div>
-              </div>
-            ))}
+      {/* Aylık Trend (Çubuk Grafiği) */}
+      <SectionCard title="Aylık Gelir/Gider (Son 6 Ay)" icon={ChartBarIcon} delay={0.5}>
+         <div className="h-64 w-full -ml-4">
+           <ResponsiveContainer width="100%" height="100%">
+             <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+               <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+               <XAxis dataKey="month" stroke="#9CA3AF" fontSize={10} axisLine={false} tickLine={false} />
+               <YAxis stroke="#9CA3AF" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(val) => `₺${val >= 1000 ? (val/1000).toFixed(0)+'k' : val}`} />
+               <Tooltip content={<CustomTooltip />} cursor={{fill: 'transparent'}}/>
+               <Bar dataKey="income" fill="#10B981" radius={[4, 4, 0, 0]} barSize={12} />
+               <Bar dataKey="expenses" fill="#EF4444" radius={[4, 4, 0, 0]} barSize={12} />
+             </BarChart>
+           </ResponsiveContainer>
          </div>
       </SectionCard>
 
-      {topCategories.length > 0 && (
-        <SectionCard title="Harcama Dağılımı" icon={ChartPieIcon} delay={0.6}>
-           <div className="space-y-8 mt-2">
-              {topCategories.map(([cat, amt]) => (
-                <div key={cat} className="group">
-                   <div className="flex justify-between items-baseline mb-3 px-1">
-                      <p className="text-sm font-black text-white tracking-tight">{cat}</p>
-                      <p className="text-xs font-bold text-gray-400">{formatCurrency(amt)}</p>
-                   </div>
-                   <div className="w-full bg-gray-900/40 rounded-full h-4 overflow-hidden p-1 border border-gray-700/20">
-                      <div 
-                        className="h-full bg-gradient-to-r from-red-500 to-indigo-500 rounded-full transition-all duration-1000"
-                        style={{ width: `${(amt / maxCategoryAmount) * 100}%` }}
-                      />
-                   </div>
-                </div>
-              ))}
+      {/* Harcama Dağılımı (Donut Grafiği) */}
+      {pieData.length > 0 && (
+        <SectionCard title="Harcama Dağılımı (Top 5)" icon={ChartPieIcon} delay={0.6}>
+           <div className="h-64 w-full relative">
+             <ResponsiveContainer width="100%" height="100%">
+               <PieChart>
+                 <Pie
+                   data={pieData}
+                   cx="50%"
+                   cy="50%"
+                   innerRadius={60}
+                   outerRadius={80}
+                   paddingAngle={5}
+                   dataKey="value"
+                   stroke="none"
+                 >
+                   {pieData.map((entry, index) => (
+                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                   ))}
+                 </Pie>
+                 <Tooltip content={<CustomPieTooltip />} />
+               </PieChart>
+             </ResponsiveContainer>
+             {/* Center Text for Donut */}
+             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">En Yüksek</span>
+                <span className="text-white font-black text-lg truncate px-4 text-center">{pieData[0].name}</span>
+             </div>
+           </div>
+           
+           {/* Custom Legend */}
+           <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-4">
+             {pieData.map((entry, index) => (
+               <div key={entry.name} className="flex items-center gap-2">
+                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                 <p className="text-xs text-white truncate flex-1 font-medium">{entry.name}</p>
+               </div>
+             ))}
            </div>
         </SectionCard>
       )}
 
-      <div className="p-8 rounded-[3rem] bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-2xl shadow-blue-600/20 relative overflow-hidden animate-slide-up mx-2">
+      {/* Net Bakiye Gelişimi (Çizgi/Alan Grafiği) */}
+      <SectionCard title="Bakiye İlerlemesi (Son 6 Ay)" icon={ArrowTrendingUpIcon} delay={0.7}>
+         <div className="h-64 w-full -ml-4">
+           <ResponsiveContainer width="100%" height="100%">
+             <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+               <defs>
+                 <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
+                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                   <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                 </linearGradient>
+               </defs>
+               <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+               <XAxis dataKey="month" stroke="#9CA3AF" fontSize={10} axisLine={false} tickLine={false} />
+               <YAxis stroke="#9CA3AF" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(val) => `₺${val >= 1000 ? (val/1000).toFixed(0)+'k' : val}`} />
+               <Tooltip content={<CustomTooltip />} />
+               <Area type="monotone" dataKey="cumulative" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCumulative)" />
+             </AreaChart>
+           </ResponsiveContainer>
+         </div>
+      </SectionCard>
+
+      <div className="p-8 rounded-[3rem] bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-2xl shadow-blue-600/20 relative overflow-hidden animate-slide-up mx-2 mt-8">
          <div className="relative z-10">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-60">{currentYear} Yılı Özeti</p>
             <div className="flex justify-between items-end">
@@ -206,7 +293,7 @@ export default function Statistics({ transactions }: StatisticsProps) {
                </div>
             </div>
          </div>
-         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-3xl" />
+         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-3xl opacity-50 pointer-events-none" />
       </div>
     </div>
   );
