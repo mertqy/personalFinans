@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import type { Transaction } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { 
@@ -9,13 +10,21 @@ import {
   ChartBarIcon,
   ChartPieIcon,
   BanknotesIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  MapIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
   AreaChart, Area, LineChart, Line, CartesianGrid
 } from 'recharts';
+import Link from 'next/link';
+
+const SpendingMap = dynamic(() => import('@/components/SpendingMap'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-gray-800/50 animate-pulse rounded-3xl" />
+});
 
 interface StatisticsProps {
   transactions: Transaction[];
@@ -337,6 +346,31 @@ export default function Statistics({ transactions }: StatisticsProps) {
            </div>
         </SectionCard>
       )}
+
+      {/* Konum Özeti (Mini Map) */}
+      <SectionCard title="Harcama Konumları" icon={MapIcon} delay={0.9}>
+         <div className="space-y-4">
+            <div className="h-48 relative group">
+               <div className="absolute inset-0 z-10 rounded-3xl cursor-pointer" onClick={() => window.location.href = '/map'} />
+               <SpendingMap transactions={realTransactions} />
+            </div>
+            <Link 
+              href="/map" 
+              className="flex items-center justify-between p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 group hover:bg-blue-500/20 transition-all"
+            >
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                     <MapIcon className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                     <p className="text-white font-bold text-sm">Tüm Haritaları Gör</p>
+                     <p className="text-[10px] text-blue-400 uppercase font-black tracking-widest">Etkileşimli Mod</p>
+                  </div>
+               </div>
+               <ChevronRightIcon className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform" />
+            </Link>
+         </div>
+      </SectionCard>
 
       <div className="p-8 rounded-[3rem] bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-2xl shadow-blue-600/20 relative overflow-hidden animate-slide-up mx-2 mt-8">
          <div className="relative z-10">

@@ -48,7 +48,7 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
-      <body className={`${inter.className} antialiased bg-gray-900 text-white overflow-x-hidden select-none`}>
+      <body className={`${inter.className} antialiased text-white overflow-x-hidden select-none`} style={{ backgroundColor: '#0B0E1A' }}>
         <ThemeProvider>
           <main className="pb-20">
             {children}

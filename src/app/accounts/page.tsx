@@ -13,7 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Account, Transfer } from '@/types';
 import { accountStorage, transferStorage } from '@/lib/storage';
-import { formatCurrency, generateId } from '@/lib/utils';
+import { formatCurrency, generateId, convertToBaseCurrency, EXCHANGE_RATES } from '@/lib/utils';
 
 const ACCOUNT_TYPES = [
   { value: 'cash', label: 'Nakit', icon: <CurrencyDollarIcon className="w-6 h-6" />, emoji: '💵' },
@@ -64,9 +64,14 @@ function AccountCard({
       <div className="flex items-end justify-between">
         <div>
           <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Mevcut Bakiye</p>
-          <p className={`text-3xl font-black tracking-tighter ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-            {formatCurrency(account.balance)}
-          </p>
+          <div className="flex items-baseline gap-1 relative">
+            <p className={`text-3xl font-black tracking-tighter ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+              {formatCurrency(account.balance, account.currency || 'TRY').replace(/[A-Za-z₺\s]+$/, '').trim()}
+            </p>
+            <span className="text-sm font-bold text-gray-500 tracking-wider">
+              {account.currency === 'TRY' ? '₺' : account.currency === 'USD' ? '$' : account.currency === 'EUR' ? '€' : account.currency === 'GOLD' ? 'GR' : account.currency}
+            </span>
+          </div>
         </div>
         <div className="pb-1 opacity-20">
            {account.icon}
@@ -86,6 +91,7 @@ function AddAccountModal({
   const [name, setName] = useState('');
   const [type, setType] = useState<Account['type']>('bank');
   const [balance, setBalance] = useState('');
+  const [currency, setCurrency] = useState('TRY');
   const [color, setColor] = useState(ACCOUNT_COLORS[0]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -96,7 +102,7 @@ function AddAccountModal({
       name,
       type,
       balance: parseFloat(balance),
-      currency: 'TRY',
+      currency,
       color,
       icon: ACCOUNT_TYPES.find((t) => t.value === type)?.emoji || '💰',
       createdAt: new Date(),
@@ -152,20 +158,35 @@ function AddAccountModal({
               </div>
             </div>
             
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Bakiye</label>
-              <div className="relative">
-                <input
-                  value={balance}
-                  onChange={(e) => setBalance(e.target.value)}
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="w-full bg-gray-800/50 border border-gray-700/50 rounded-2xl p-5 pl-12 text-white text-2xl font-black focus:border-green-500 focus:bg-gray-800 focus:outline-none transition-all"
-                  style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
-                  required
-                />
-                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-2xl">₺</span>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Para Birimi</label>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="w-full bg-gray-800/50 border border-gray-700/50 rounded-2xl p-5 text-white text-lg font-bold appearance-none focus:border-blue-500 focus:bg-gray-800 focus:outline-none transition-all"
+                >
+                  <option value="TRY">Türk Lirası (₺)</option>
+                  <option value="USD">Dolar ($)</option>
+                  <option value="EUR">Euro (€)</option>
+                  <option value="GOLD">Gram Altın</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 px-1">Bakiye</label>
+                <div className="relative">
+                  <input
+                    value={balance}
+                    onChange={(e) => setBalance(e.target.value)}
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    className="w-full bg-gray-800/50 border border-gray-700/50 rounded-2xl p-5 text-white text-xl font-black focus:border-green-500 focus:bg-gray-800 focus:outline-none transition-all"
+                    style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                    required
+                  />
+                </div>
               </div>
             </div>
             
@@ -282,11 +303,10 @@ function TransferModal({
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-2xl p-5 pl-12 text-white text-2xl font-black focus:border-purple-500 focus:bg-gray-800 focus:outline-none transition-all"
+                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-2xl p-5 text-white text-2xl font-black focus:border-purple-500 focus:bg-gray-800 focus:outline-none transition-all"
                 style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
                 required
               />
-              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-2xl">₺</span>
             </div>
           </div>
           
@@ -315,7 +335,7 @@ export default function AccountsPage() {
 
   if (!isClient) return null;
 
-  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
+  const totalBalance = accounts.reduce((s, a) => s + convertToBaseCurrency(a.balance, a.currency || 'TRY', 'TRY'), 0);
 
   const handleAdd = (account: Account) => {
     const updated = accountStorage.add(account);

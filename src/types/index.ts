@@ -91,7 +91,7 @@ export interface Category {
 export interface Budget {
   id: string;
   userId: string;
-  categoryId: string;
+  categoryId: string; // Used to match with transaction.category
   amount: number;
   period: 'monthly' | 'yearly';
   startDate: Date;
@@ -105,10 +105,13 @@ export interface Goal {
   userId: string;
   title: string;
   description?: string;
+  icon?: string;
   targetAmount: number;
   currentAmount: number;
   targetDate: Date;
   isCompleted: boolean;
+  level?: string;
+  levelColor?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,12 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { PlusIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
-import { formatCurrency, formatDate, generateId } from '@/lib/utils';
+import dynamic from 'next/dynamic';
+import { PlusIcon, ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { formatCurrency, formatDate, generateId, convertToBaseCurrency, EXCHANGE_RATES } from '@/lib/utils';
 import type { Transaction, Account, CreditCard, Loan } from '@/types';
 import { transactionStorage, accountStorage, creditCardStorage, loanStorage } from '@/lib/storage';
 import Modal from '@/components/forms/Modal';
 import TransactionForm from '@/components/forms/TransactionForm';
+import Link from 'next/link';
+
+const SpendingMap = dynamic(() => import('@/components/SpendingMap'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-[var(--bg-card)] animate-pulse rounded-2xl" />
+});
 
 interface TransactionFormData {
   type: 'income' | 'expense';
@@ -21,97 +28,20 @@ interface TransactionFormData {
   location?: { lat: number; lng: number };
 }
 
-function useCountUp(end: number, duration: number = 1000) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    let startTime: number;
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(end * easeOut));
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, [end, duration]);
-  return count;
-}
+const CATEGORY_ICONS: Record<string, string> = {
+  'Market': '🛒', 'Yemek': '🍔', 'Ulaşım': '🚗', 'Fatura': '⚡',
+  'Eğlence': '🎬', 'Sağlık': '💊', 'Giyim': '👕', 'Eğitim': '📚',
+  'Kira': '🏠', 'Maaş': '💼', 'Freelance': '💻', 'Yatırım': '📈',
+  'Hediye': '🎁', 'Diğer': '📋', 'Abonelik': '🔄', 'Spor': '🏋️',
+};
 
 function useHapticFeedback() {
-  const triggerSuccess = () => { 
+  const triggerSuccess = () => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([100, 50, 100]);
     }
   };
   return { triggerSuccess };
-}
-
-function SummaryRow({ income, expenses }: { income: number; expenses: number }) {
-  return (
-    <div className="flex gap-4 mt-8">
-      <div className="flex-1 glass rounded-3xl p-5 border border-green-500/10 bg-green-500/5">
-        <div className="flex items-center gap-2 mb-1">
-           <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-              <ArrowUpIcon className="w-3.5 h-3.5 text-green-400" />
-           </div>
-           <p className="text-[10px] text-green-300/60 uppercase font-black tracking-widest">Gelir</p>
-        </div>
-        <p className="text-xl font-bold text-green-400 tracking-tight">{formatCurrency(income)}</p>
-      </div>
-      <div className="flex-1 glass rounded-3xl p-5 border border-red-500/10 bg-red-500/5">
-        <div className="flex items-center gap-2 mb-1">
-           <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center">
-              <ArrowDownIcon className="w-3.5 h-3.5 text-red-400" />
-           </div>
-           <p className="text-[10px] text-red-300/60 uppercase font-black tracking-widest">Gider</p>
-        </div>
-        <p className="text-xl font-bold text-red-400 tracking-tight">{formatCurrency(expenses)}</p>
-      </div>
-    </div>
-  );
-}
-
-function TransactionItem({ transaction, accounts, cards, index }: {
-  transaction: Transaction;
-  accounts: Account[];
-  cards: CreditCard[];
-  index: number;
-}) {
-  const isIncome = transaction.type === 'income';
-  const account = accounts.find((a) => a.id === transaction.accountId);
-  const card = cards.find((c) => c.id === transaction.creditCardId);
-
-  return (
-    <div
-      className={`flex items-center justify-between p-5 rounded-[2rem] glass-strong border border-gray-700/20 bg-gray-800/20 animate-slide-up stagger-${Math.min(index + 1, 4)}`}
-      style={{ animationDelay: `${index * 0.05}s` }}
-    >
-      <div className="flex items-center gap-4">
-        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${isIncome ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-          {isIncome ? <ArrowUpIcon className="w-6 h-6" /> : <ArrowDownIcon className="w-6 h-6" />}
-        </div>
-        <div>
-          <p className="font-black text-white text-base tracking-tight">{transaction.category}</p>
-          <div className="flex items-center gap-2">
-            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{formatDate(transaction.date)}</p>
-            {account && (
-              <span className="text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-tighter" style={{ backgroundColor: `${account.color}20`, color: account.color }}>
-                {account.name}
-              </span>
-            )}
-            {card && (
-              <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-black uppercase tracking-tighter">
-                {card.name}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-      <p className={`font-black text-lg tracking-tighter ${isIncome ? 'text-green-400' : 'text-red-400'}`}>
-        {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
-      </p>
-    </div>
-  );
 }
 
 export default function HomePage() {
@@ -127,14 +57,11 @@ export default function HomePage() {
 
   useEffect(() => {
     setIsClient(true);
-    
-    // İşlemleri yükle
     let txs = transactionStorage.getAll();
     let accs = accountStorage.getAll();
     let cds = creditCardStorage.getAll();
     const lns = loanStorage.getAll();
 
-    // Tekrarlayan işlemleri işle
     const result = transactionStorage.processRecurring();
     if (result.updatedTransactions.length > txs.length) {
       txs = result.updatedTransactions;
@@ -150,16 +77,22 @@ export default function HomePage() {
   }, []);
 
   const realTransactions = transactions.filter((t) => !t.isPlanned);
-  const totalIncome = realTransactions.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = realTransactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const totalIncome = realTransactions.filter((t) => t.type === 'income').reduce((s, t) => {
+    const acc = accounts.find(a => a.id === t.accountId);
+    return s + convertToBaseCurrency(t.amount, acc?.currency || 'TRY', 'TRY');
+  }, 0);
   
-  const accountsTotal = accounts.reduce((s, a) => s + a.balance, 0);
-  const cardsDebt = cards.reduce((s, c) => s + c.currentDebt, 0);
-  const loansDebt = loans.reduce((s, l) => s + l.remainingAmount, 0);
-  
-  const netWorth = accountsTotal - cardsDebt - loansDebt; 
+  const totalExpenses = realTransactions.filter((t) => t.type === 'expense').reduce((s, t) => {
+    const acc = accounts.find(a => a.id === t.accountId);
+    return s + convertToBaseCurrency(t.amount, acc?.currency || 'TRY', 'TRY');
+  }, 0);
 
-  const netWorthAnimated = useCountUp(netWorth, 1500);
+  const accountsTotal = accounts.reduce((s, a) => s + convertToBaseCurrency(a.balance, a.currency || 'TRY', 'TRY'), 0);
+  const cardsDebt = cards.reduce((s, c) => s + c.currentDebt, 0); // Varsayılan olarak kart ve kredi TRY kabul edildi
+  const loansDebt = loans.reduce((s, l) => s + l.remainingAmount, 0);
+  const netWorth = accountsTotal - cardsDebt - loansDebt;
+
+  const locTransactions = realTransactions.filter(t => t.location);
 
   const handleSubmit = async (data: TransactionFormData) => {
     const txId = generateId();
@@ -182,11 +115,9 @@ export default function HomePage() {
     };
 
     if (data.creditCardId && data.type === 'expense') {
-      // Sadece kredi kartı borcunu artır (hesap bakiyesi ödeme yapıldığında düşer)
       creditCardStorage.adjustDebt(data.creditCardId, data.amount);
       setCards(creditCardStorage.getAll());
     } else if (data.accountId) {
-      // Doğrudan hesaptan (nakit/banka) işlem
       accountStorage.adjustBalance(data.accountId, data.type === 'income' ? data.amount : -data.amount);
       setAccounts(accountStorage.getAll());
     }
@@ -200,86 +131,186 @@ export default function HomePage() {
 
   if (!isClient || isLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0B0E1A' }}>
         <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-900 to-[#0a0a0f] pb-32">
-      {/* Mobile Top Bar */}
-      <div className="px-6 pt-14 pb-10 animate-fade-in relative overflow-hidden">
-        <div className="relative z-10 text-center">
-            <button 
-              onClick={() => {
-                if(confirm('DİKKAT: Tüm verileriniz (hesaplar, kartlar, işlemler) kalıcı olarak silinecektir. Emin misiniz?')) {
-                  localStorage.clear();
-                  window.location.reload();
-                }
-              }}
-              className="mb-8 w-full py-4 rounded-2xl bg-red-500/20 border-2 border-red-500 text-red-500 font-black text-sm uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all btn-bounce shadow-2xl shadow-red-500/20"
-            >
-              ⚠ TÜM VERİLERİ SIFIRLA VE SİSTEMİ YENİLE
-            </button>
+    <div className="min-h-screen pb-32" style={{ background: 'linear-gradient(180deg, #0B0E1A 0%, #0F1527 100%)' }}>
 
-            <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.2em] mb-2">Net Varlık</p>
-            <p className={`text-6xl font-black tracking-tighter ${netWorth >= 0 ? 'text-white' : 'text-red-500'}`}>
-              {formatCurrency(netWorthAnimated)}
-            </p>
-            <SummaryRow income={totalIncome} expenses={totalExpenses} />
+      {/* Header */}
+      <div className="px-6 pt-14 pb-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-[#64748B] uppercase font-black tracking-[0.15em]">Tekrar hoş geldin,</p>
+            <h1 className="text-2xl font-black text-white tracking-tight mt-1">Kullanıcı</h1>
+          </div>
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-2 ring-indigo-500/30">
+            <span className="text-white font-black text-sm">KL</span>
+          </div>
         </div>
-        
-        <div className="absolute -top-20 -left-20 w-80 h-80 bg-blue-600/10 rounded-full blur-[120px]" />
-        <div className="absolute -top-20 -right-20 w-80 h-80 bg-purple-600/10 rounded-full blur-[120px]" />
       </div>
 
-      <div className="px-6 space-y-8">
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-4">
-           <button 
-             onClick={() => setIsIncomeModalOpen(true)}
-             className="bg-green-500 text-white rounded-[2rem] p-6 font-black text-lg btn-bounce shadow-xl shadow-green-500/20"
-           >
-             Gelir Ekle
-           </button>
-           <button 
-             onClick={() => setIsExpenseModalOpen(true)}
-             className="bg-red-500 text-white rounded-[2rem] p-6 font-black text-lg btn-bounce shadow-xl shadow-red-500/20"
-           >
-             Gider Ekle
-           </button>
+      {/* Net Varlık Kartı */}
+      <div className="px-6 mb-6">
+        <div className="relative overflow-hidden rounded-[1.5rem] p-6 animate-fade-in" 
+             style={{ background: 'linear-gradient(135deg, #1A1F3A 0%, #151B2E 50%, #1A2540 100%)', border: '1px solid rgba(99, 102, 241, 0.15)' }}>
+          <div className="relative z-10">
+            <p className="text-[10px] text-[#94A3B8] uppercase font-black tracking-[0.2em] mb-2">Toplam Varlık</p>
+            <p className={`text-4xl font-black tracking-tighter ${netWorth >= 0 ? 'text-white' : 'text-red-400'}`}>
+              {formatCurrency(netWorth)}
+            </p>
+            <div className="flex items-center gap-4 mt-3 text-[10px]">
+              <span className="text-[#94A3B8] font-bold">USD/TRY <span className="text-blue-400">{EXCHANGE_RATES.USD.toFixed(2)}</span></span>
+              <span className="text-[#94A3B8] font-bold">ALTIN/TRY <span className="text-yellow-400">{EXCHANGE_RATES.GOLD.toLocaleString('tr-TR')} ₺</span></span>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-[60px]" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full -ml-10 -mb-10 blur-[50px]" />
         </div>
+      </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-6 px-1">
-            <h2 className="text-xl font-black text-white tracking-tight">Son İşlemler</h2>
-            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest glass px-3 py-1 rounded-full">{realTransactions.length} işlem</span>
+      {/* Gelir / Gider Kartları */}
+      <div className="px-6 mb-8">
+        <div className="flex gap-4">
+          <button 
+            onClick={() => setIsIncomeModalOpen(true)}
+            className="flex-1 flex items-center justify-between rounded-2xl p-4 btn-bounce card-surface"
+          >
+            <div>
+              <p className="text-[10px] text-green-400 uppercase font-black tracking-[0.1em]">Gelir</p>
+              <p className="text-xl font-black text-green-400 tracking-tight">+{formatCurrency(totalIncome)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-green-500 flex items-center justify-center shadow-lg shadow-green-500/30">
+              <PlusIcon className="w-5 h-5 text-white" />
+            </div>
+          </button>
+          <button 
+            onClick={() => setIsExpenseModalOpen(true)}
+            className="flex-1 flex items-center justify-between rounded-2xl p-4 btn-bounce card-surface"
+          >
+            <div>
+              <p className="text-[10px] text-red-400 uppercase font-black tracking-[0.1em]">Gider</p>
+              <p className="text-xl font-black text-red-400 tracking-tight">-{formatCurrency(totalExpenses)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center shadow-lg shadow-red-500/30">
+              <PlusIcon className="w-5 h-5 text-white" />
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Harcama Lokasyonları */}
+      {locTransactions.length > 0 && (
+        <div className="px-6 mb-8 animate-fade-in">
+          <div className="card-elevated p-5">
+            <h2 className="text-lg font-black text-white tracking-tight mb-4">Harcama Lokasyonları</h2>
+            <div className="h-36 rounded-2xl overflow-hidden mb-4 relative">
+              <div className="absolute inset-0 z-10 rounded-2xl cursor-pointer" onClick={() => window.location.href = '/map'} />
+              <SpendingMap transactions={realTransactions} />
+            </div>
+            <div className="space-y-3">
+              {(() => {
+                const locationGroups: Record<string, { count: number; total: number; lat: number; lng: number }> = {};
+                locTransactions.forEach(t => {
+                  const key = `${t.location!.lat.toFixed(2)},${t.location!.lng.toFixed(2)}`;
+                  if (!locationGroups[key]) locationGroups[key] = { count: 0, total: 0, lat: t.location!.lat, lng: t.location!.lng };
+                  locationGroups[key].count++;
+                  locationGroups[key].total += t.amount;
+                });
+                return Object.entries(locationGroups).slice(0, 3).map(([key, data]) => (
+                  <div key={key} className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--bg-surface)' }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                        <span className="text-blue-400 text-sm">📍</span>
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-sm">Bölge {key.split(',')[0].slice(-2)}</p>
+                        <p className="text-[10px] text-[#64748B]">{data.count} İşlem</p>
+                      </div>
+                    </div>
+                    <p className="text-white font-black">{formatCurrency(data.total)}</p>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* İşlem Geçmişi */}
+      <div className="px-6 mb-8">
+        <div className="card-elevated p-5">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-black text-white tracking-tight">İşlem Geçmişi</h2>
+            <span className="text-xs font-bold text-indigo-400 cursor-pointer hover:text-indigo-300 transition-colors">Tümünü Gör</span>
           </div>
 
           {realTransactions.length === 0 ? (
-            <div className="text-center py-20 bg-gray-800/20 rounded-[3rem] border border-gray-700/10 animate-fade-in">
-              <div className="w-20 h-20 glass rounded-[2rem] flex items-center justify-center mx-auto mb-6 float border border-gray-700/30">
-                <PlusIcon className="w-10 h-10 text-gray-600" />
+            <div className="text-center py-12 animate-fade-in">
+              <div className="w-16 h-16 glass rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <PlusIcon className="w-8 h-8 text-[#64748B]" />
               </div>
-              <p className="text-gray-500 font-bold mb-1 px-10 leading-tight">Henüz bir işlem yapmadın</p>
+              <p className="text-[#64748B] font-bold">Henüz bir işlem yapmadın</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {realTransactions
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, 50)
-                .map((transaction, index) => (
-                  <TransactionItem
-                    key={transaction.id}
-                    transaction={transaction}
-                    accounts={accounts}
-                    cards={cards}
-                    index={index}
-                  />
-                ))}
+                .slice(0, 10)
+                .map((transaction, index) => {
+                  const isIncome = transaction.type === 'income';
+                  const account = accounts.find((a) => a.id === transaction.accountId);
+                  const icon = CATEGORY_ICONS[transaction.category] || '📋';
+
+                  return (
+                    <div
+                      key={transaction.id}
+                      className="flex items-center justify-between p-3 rounded-xl transition-all hover:scale-[1.01]"
+                      style={{ background: 'var(--bg-surface)', animationDelay: `${index * 0.04}s` }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg shadow-lg ${isIncome ? 'bg-green-500/15' : 'bg-red-500/15'}`}>
+                          {icon}
+                        </div>
+                        <div>
+                          <p className="font-bold text-white text-sm tracking-tight">{transaction.category}</p>
+                          <p className="text-[10px] text-[#64748B] font-medium">{formatDate(transaction.date)}{transaction.description && transaction.description !== transaction.category ? ` • ${transaction.description}` : ''}</p>
+                        </div>
+                      </div>
+                      <p className={`font-black text-sm tracking-tight ${isIncome ? 'text-green-400' : 'text-red-400'}`}>
+                        {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
+                      </p>
+                    </div>
+                  );
+                })}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Alt Aksiyon Butonları */}
+      <div className="px-6 mb-6">
+        <div className="flex gap-4">
+          <button
+            onClick={() => setIsExpenseModalOpen(true)}
+            className="flex-1 flex flex-col items-center gap-2 p-5 rounded-2xl btn-bounce card-surface"
+          >
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/15 flex items-center justify-center">
+              <PlusIcon className="w-6 h-6 text-indigo-400" />
+            </div>
+            <span className="text-xs font-bold text-[#94A3B8]">İşlem Ekle</span>
+          </button>
+          <button
+            className="flex-1 flex flex-col items-center gap-2 p-5 rounded-2xl btn-bounce card-surface"
+          >
+            <div className="w-12 h-12 rounded-xl bg-yellow-500/15 flex items-center justify-center">
+              <ArrowsRightLeftIcon className="w-6 h-6 text-yellow-400" />
+            </div>
+            <span className="text-xs font-bold text-[#94A3B8]">Döviz/Altın Takas</span>
+          </button>
         </div>
       </div>
 
@@ -305,9 +336,6 @@ export default function HomePage() {
           />
         </Modal>
       )}
-      <div className="text-center pb-10 opacity-10">
-        <span className="text-[10px] font-black tracking-tighter text-white">v1.1 - DEBUG MODE</span>
-      </div>
     </div>
   );
 }
