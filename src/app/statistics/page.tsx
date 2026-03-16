@@ -11,7 +11,9 @@ export default function StatisticsPage() {
 
   useEffect(() => {
     setIsClient(true);
-    setTransactions(transactionStorage.getAll());
+    // Tekrarlayan işlemleri işle ve en güncel listeyi al
+    const result = transactionStorage.processRecurring();
+    setTransactions(result.updatedTransactions);
   }, []);
 
   if (!isClient) {

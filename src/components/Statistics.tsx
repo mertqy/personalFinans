@@ -8,7 +8,8 @@ import {
   ArrowTrendingDownIcon, 
   ChartBarIcon,
   ChartPieIcon,
-  BanknotesIcon 
+  BanknotesIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -113,14 +114,30 @@ export default function Statistics({ transactions }: StatisticsProps) {
   const balance = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
+  // Abonelikler (Tekrarlayan İşlemler)
+  const subscriptions = realTransactions.filter(t => t.type === 'expense' && t.isRecurring);
+
   const currentYear = new Date().getFullYear();
   const yearlyTransactions = realTransactions.filter(t => new Date(t.date).getFullYear() === currentYear);
   const yearlyIncome = yearlyTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const yearlyExpenses = yearlyTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
 
   // Generate Monthly Data for Bar & Line Charts
-  const monthlyData: {month: string, income: number, expenses: number, net: number, cumulative: number}[] = [];
-  let runningCumulative = 0;
+  const monthlyData: {month: string, income: number, expenses: number, net: number, expenseDiff: number}[] = [];
+  
+  // Önceki ayı başlangıç olarak al (7 ay öncesi)
+  const getExpensesForMonthsAgo = (monthsAgo: number) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - monthsAgo);
+    const mtx = realTransactions.filter(t => {
+      const td = new Date(t.date);
+      return td.getMonth() === d.getMonth() && td.getFullYear() === d.getFullYear();
+    });
+    return mtx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  };
+
+  let previousExpense = getExpensesForMonthsAgo(6);
+
   for (let i = 5; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
@@ -131,13 +148,16 @@ export default function Statistics({ transactions }: StatisticsProps) {
     const inc = mtx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const exp = mtx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     const net = inc - exp;
-    runningCumulative += net;
+    
+    const expenseDiff = exp - previousExpense;
+    previousExpense = exp;
+
     monthlyData.push({ 
       month: d.toLocaleDateString('tr-TR', { month: 'short' }).toUpperCase(), 
       income: inc, 
       expenses: exp, 
       net: net,
-      cumulative: runningCumulative
+      expenseDiff: expenseDiff
     });
   }
 
@@ -157,12 +177,18 @@ export default function Statistics({ transactions }: StatisticsProps) {
       return (
         <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl shadow-xl">
           <p className="text-white font-bold mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm font-medium" style={{ color: entry.color }}>
-              {entry.name === 'income' ? 'Gelir: ' : entry.name === 'expenses' ? 'Gider: ' : entry.name === 'net' ? 'Net: ' : entry.name === 'cumulative' ? 'Bakiye: ' : ''}
-              {formatCurrency(entry.value)}
-            </p>
-          ))}
+          {payload.map((entry: any, index: number) => {
+            const isDiff = entry.name === 'expenseDiff';
+            const val = entry.value;
+            const formatted = formatCurrency(Math.abs(val));
+            const diffPrefix = isDiff && val > 0 ? '+' : isDiff && val < 0 ? '-' : '';
+            return (
+              <p key={index} className="text-sm font-medium" style={{ color: entry.color }}>
+                {entry.name === 'income' ? 'Gelir: ' : entry.name === 'expenses' ? 'Gider: ' : entry.name === 'net' ? 'Net: ' : isDiff ? 'Gider Değişimi: ' : ''}
+                {diffPrefix}{formatted}
+              </p>
+            );
+          })}
         </div>
       );
     }
@@ -258,26 +284,59 @@ export default function Statistics({ transactions }: StatisticsProps) {
         </SectionCard>
       )}
 
-      {/* Net Bakiye Gelişimi (Çizgi/Alan Grafiği) */}
-      <SectionCard title="Bakiye İlerlemesi (Son 6 Ay)" icon={ArrowTrendingUpIcon} delay={0.7}>
+      {/* Gider Değişimi İlerlemesi (Çizgi/Alan Grafiği) */}
+      <SectionCard title="Aylık Gider Değişimi" icon={ArrowTrendingUpIcon} delay={0.7}>
          <div className="h-64 w-full -ml-4">
            <ResponsiveContainer width="100%" height="100%">
              <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                <defs>
-                 <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
-                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                   <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                 <linearGradient id="colorExpenseDiff" x1="0" y1="0" x2="0" y2="1">
+                   <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                   <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
                  </linearGradient>
                </defs>
                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                <XAxis dataKey="month" stroke="#9CA3AF" fontSize={10} axisLine={false} tickLine={false} />
-               <YAxis stroke="#9CA3AF" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(val) => `₺${val >= 1000 ? (val/1000).toFixed(0)+'k' : val}`} />
+               <YAxis stroke="#9CA3AF" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(val) => `₺${Math.abs(val) >= 1000 ? (Math.abs(val)/1000).toFixed(0)+'k' : Math.abs(val)}`} />
                <Tooltip content={<CustomTooltip />} />
-               <Area type="monotone" dataKey="cumulative" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCumulative)" />
+               <Area type="monotone" dataKey="expenseDiff" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorExpenseDiff)" />
              </AreaChart>
            </ResponsiveContainer>
          </div>
       </SectionCard>
+
+      {/* Aboneliklerim (Tekrarlayan Giderler) */}
+      {subscriptions.length > 0 && (
+        <SectionCard title="Aboneliklerim" icon={ArrowPathIcon} delay={0.8}>
+           <div className="space-y-4 mt-2">
+              {subscriptions.reduce((uniqueSubs, sub) => {
+                 // Sadece benzersiz abonelikleri listelemek için isimlerine göre filtrele 
+                 // (Çünkü geçmiş aylar dahil aynı isimde çok fatura olabilir, en güncelini baz alalım)
+                 if (!uniqueSubs.find(s => s.category === sub.category && s.description === sub.description)) {
+                   uniqueSubs.push(sub);
+                 }
+                 return uniqueSubs;
+              }, [] as Transaction[]).map((sub) => (
+                <div key={sub.id} className="flex items-center justify-between p-4 bg-gray-900/40 rounded-2xl border border-gray-700/30 w-full group overflow-hidden">
+                   <div className="flex items-center gap-4 min-w-0 pr-4">
+                     <div className="w-12 h-12 flex-shrink-0 bg-gray-800 rounded-xl flex items-center justify-center shadow-lg border border-white/5">
+                        <ArrowPathIcon className="w-5 h-5 text-purple-400 group-hover:rotate-180 transition-transform duration-700" />
+                     </div>
+                     <div className="flex flex-col min-w-0">
+                        <p className="text-white font-bold tracking-tight text-base truncate">{sub.description || sub.category}</p>
+                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest truncate">
+                          {sub.recurringFrequency === 'monthly' ? 'Aylık' : sub.recurringFrequency === 'weekly' ? 'Haftalık' : sub.recurringFrequency === 'yearly' ? 'Yıllık' : 'Günlük'}
+                        </p>
+                     </div>
+                   </div>
+                   <div className="flex-shrink-0 text-right">
+                      <p className="text-red-400 font-black text-lg">-{formatCurrency(sub.amount)}</p>
+                   </div>
+                </div>
+              ))}
+           </div>
+        </SectionCard>
+      )}
 
       <div className="p-8 rounded-[3rem] bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-2xl shadow-blue-600/20 relative overflow-hidden animate-slide-up mx-2 mt-8">
          <div className="relative z-10">

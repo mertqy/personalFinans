@@ -86,6 +86,78 @@ export const transactionStorage = {
     save(KEYS.TRANSACTIONS, items);
     return items;
   },
+  processRecurring: (): { updatedTransactions: Transaction[]; updatedAccounts: boolean; updatedCards: boolean } => {
+    const transactions = transactionStorage.getAll();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    let currentTransactions = [...transactions];
+    let updated = false;
+    let balanceUpdated = false;
+    let debtUpdated = false;
+
+    // Sadece isRecurring işaretli olan 'ana' veya en güncel işlemleri bulalım
+    const recurringTemplates = transactions.filter(t => t.isRecurring);
+
+    recurringTemplates.forEach(template => {
+      // Bu seriye ait tüm işlemleri bulup en sonuncusunu belirleyelim
+      const series = currentTransactions.filter(t => t.recurrenceId === (template.recurrenceId || template.id) || t.id === (template.recurrenceId || template.id));
+      const latest = series.reduce((prev, curr) => new Date(curr.date) > new Date(prev.date) ? curr : prev, template);
+      
+      let nextDate = new Date(latest.date);
+      const frequency = latest.recurringFrequency || 'monthly';
+
+      while (true) {
+        // Bir sonraki tarihi hesapla
+        if (frequency === 'daily') nextDate.setDate(nextDate.getDate() + 1);
+        else if (frequency === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+        else if (frequency === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+        else if (frequency === 'yearly') nextDate.setFullYear(nextDate.getFullYear() + 1);
+
+        // Eğer gelecek bir tarihteysek dur
+        if (nextDate > now) break;
+
+        // Yeni işlemi oluştur
+        const newId = Math.random().toString(36).substr(2, 9);
+        const newInstance: Transaction = {
+          ...latest,
+          id: newId,
+          recurrenceId: template.recurrenceId || template.id,
+          date: new Date(nextDate),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isRecurring: true // Yeni işlem de tekrarlayan olarak kalsın ki bir sonraki döngüde kontrol edilebilsin
+        };
+
+        currentTransactions = [newInstance, ...currentTransactions];
+        updated = true;
+
+        // Hesap bakiyesini veya kredi kartı borcunu güncelle
+        if (newInstance.type === 'expense') {
+          if (newInstance.creditCardId) {
+            creditCardStorage.adjustDebt(newInstance.creditCardId, newInstance.amount);
+            debtUpdated = true;
+          } else if (newInstance.accountId) {
+            accountStorage.adjustBalance(newInstance.accountId, -newInstance.amount);
+            balanceUpdated = true;
+          }
+        } else if (newInstance.type === 'income' && newInstance.accountId) {
+          accountStorage.adjustBalance(newInstance.accountId, newInstance.amount);
+          balanceUpdated = true;
+        }
+      }
+    });
+
+    if (updated) {
+      save(KEYS.TRANSACTIONS, currentTransactions);
+    }
+
+    return { 
+      updatedTransactions: currentTransactions, 
+      updatedAccounts: balanceUpdated, 
+      updatedCards: debtUpdated 
+    };
+  }
 };
 
 // ─── Accounts ─────────────────────────────────────────────────────────────────

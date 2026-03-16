@@ -8,6 +8,7 @@ import {
   CreditCardIcon,
   BanknotesIcon,
   ChartBarIcon,
+  MapIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -15,6 +16,7 @@ import {
   CreditCardIcon as CreditCardIconSolid,
   BanknotesIcon as BanknotesIconSolid,
   ChartBarIcon as ChartBarIconSolid,
+  MapIcon as MapIconSolid,
 } from '@heroicons/react/24/solid';
 
 const NAV_ITEMS = [
@@ -23,6 +25,7 @@ const NAV_ITEMS = [
   { href: '/cards', label: 'Kartlar', icon: CreditCardIcon, activeIcon: CreditCardIconSolid },
   { href: '/loans', label: 'Krediler', icon: BanknotesIcon, activeIcon: BanknotesIconSolid },
   { href: '/statistics', label: 'İstatistik', icon: ChartBarIcon, activeIcon: ChartBarIconSolid },
+  { href: '/map', label: 'Harita', icon: MapIcon, activeIcon: MapIconSolid },
 ];
 
 export default function BottomNavigation() {

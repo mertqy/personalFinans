@@ -18,6 +18,7 @@ interface TransactionFormData {
   recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
   accountId?: string;
   creditCardId?: string;
+  location?: { lat: number; lng: number };
 }
 
 function useCountUp(end: number, duration: number = 1000) {
@@ -126,10 +127,21 @@ export default function HomePage() {
 
   useEffect(() => {
     setIsClient(true);
-    const txs = transactionStorage.getAll();
-    const accs = accountStorage.getAll();
-    const cds = creditCardStorage.getAll();
+    
+    // İşlemleri yükle
+    let txs = transactionStorage.getAll();
+    let accs = accountStorage.getAll();
+    let cds = creditCardStorage.getAll();
     const lns = loanStorage.getAll();
+
+    // Tekrarlayan işlemleri işle
+    const result = transactionStorage.processRecurring();
+    if (result.updatedTransactions.length > txs.length) {
+      txs = result.updatedTransactions;
+      if (result.updatedAccounts) accs = accountStorage.getAll();
+      if (result.updatedCards) cds = creditCardStorage.getAll();
+    }
+
     setTransactions(txs);
     setAccounts(accs);
     setCards(cds);
@@ -150,8 +162,9 @@ export default function HomePage() {
   const netWorthAnimated = useCountUp(netWorth, 1500);
 
   const handleSubmit = async (data: TransactionFormData) => {
+    const txId = generateId();
     const newTransaction: Transaction = {
-      id: generateId(),
+      id: txId,
       userId: 'local-user',
       type: data.type,
       amount: parseFloat(data.amount.toString()),
@@ -160,6 +173,8 @@ export default function HomePage() {
       date: new Date(data.date),
       isRecurring: data.isRecurring,
       recurringFrequency: data.recurringFrequency,
+      recurrenceId: data.isRecurring ? txId : undefined,
+      location: data.location,
       accountId: data.accountId,
       creditCardId: data.creditCardId,
       createdAt: new Date(),

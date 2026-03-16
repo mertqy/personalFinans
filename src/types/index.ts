@@ -16,6 +16,12 @@ export interface Transaction {
   date: Date;
   isRecurring?: boolean;
   recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurrenceId?: string;
+  location?: {
+    lat: number;
+    lng: number;
+    address?: string;
+  };
   isPlanned?: boolean;
   accountId?: string;
   creditCardId?: string;
