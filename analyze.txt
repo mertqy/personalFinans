@@ -1,0 +1,30 @@
+Analyzing flatter...                                            
+
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\app\theme.dart:49:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\app\theme.dart:67:31 - deprecated_member_use
+   info - The argument type 'int' isn't related to 'String' - lib\screens\statistics_screen.dart:72:61 - collection_methods_unrelated_type
+  error - The method 'replaceFirst' can't be unconditionally invoked because the receiver can be 'null' - lib\screens\statistics_screen.dart:72:64 - unchecked_use_of_nullable_value
+   info - The argument type 'int' isn't related to 'String' - lib\screens\statistics_screen.dart:80:61 - collection_methods_unrelated_type
+  error - The method 'replaceFirst' can't be unconditionally invoked because the receiver can be 'null' - lib\screens\statistics_screen.dart:80:64 - unchecked_use_of_nullable_value
+   info - The argument type 'int' isn't related to 'String' - lib\screens\statistics_screen.dart:88:61 - collection_methods_unrelated_type
+  error - The method 'replaceFirst' can't be unconditionally invoked because the receiver can be 'null' - lib\screens\statistics_screen.dart:88:64 - unchecked_use_of_nullable_value
+   info - The argument type 'int' isn't related to 'String' - lib\screens\statistics_screen.dart:96:61 - collection_methods_unrelated_type
+  error - The method 'replaceFirst' can't be unconditionally invoked because the receiver can be 'null' - lib\screens\statistics_screen.dart:96:64 - unchecked_use_of_nullable_value
+   info - The argument type 'int' isn't related to 'String' - lib\screens\statistics_screen.dart:110:66 - collection_methods_unrelated_type
+  error - The method 'replaceFirst' can't be unconditionally invoked because the receiver can be 'null' - lib\screens\statistics_screen.dart:110:69 - unchecked_use_of_nullable_value
+   info - The argument type 'int' isn't related to 'String' - lib\screens\statistics_screen.dart:112:66 - collection_methods_unrelated_type
+  error - The method 'replaceFirst' can't be unconditionally invoked because the receiver can be 'null' - lib\screens\statistics_screen.dart:112:69 - unchecked_use_of_nullable_value
+   info - The argument type 'int' isn't related to 'String' - lib\screens\statistics_screen.dart:114:66 - collection_methods_unrelated_type
+  error - The method 'replaceFirst' can't be unconditionally invoked because the receiver can be 'null' - lib\screens\statistics_screen.dart:114:69 - unchecked_use_of_nullable_value
+   info - The argument type 'int' isn't related to 'String' - lib\screens\statistics_screen.dart:116:66 - collection_methods_unrelated_type
+  error - The method 'replaceFirst' can't be unconditionally invoked because the receiver can be 'null' - lib\screens\statistics_screen.dart:116:69 - unchecked_use_of_nullable_value
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\widgets\add_account_modal.dart:77:15 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\widgets\add_account_modal.dart:102:21 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\widgets\add_card_modal.dart:92:15 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\widgets\add_loan_modal.dart:110:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\widgets\transaction_modal.dart:179:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\widgets\transaction_modal.dart:228:17 - deprecated_member_use
+   info - Unnecessary use of 'toList' in a spread - lib\widgets\transaction_modal.dart:232:130 - unnecessary_to_list_in_spreads
+   info - Unnecessary use of 'toList' in a spread - lib\widgets\transaction_modal.dart:235:140 - unnecessary_to_list_in_spreads
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\widgets\transaction_modal.dart:263:19 - deprecated_member_use
+
