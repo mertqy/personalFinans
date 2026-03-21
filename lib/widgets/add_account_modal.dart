@@ -137,7 +137,7 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedType,
+              initialValue: _selectedType,
               items: _types.map((t) => DropdownMenuItem(value: t['value']!, child: Text(t['label']!))).toList(),
               onChanged: (val) => setState(() => _selectedType = val!),
               decoration: const InputDecoration(labelText: 'Hesap Türü'),
@@ -165,7 +165,7 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
                 Expanded(
                   flex: 1,
                   child: DropdownButtonFormField<String>(
-                    value: _selectedCurrency,
+                    initialValue: _selectedCurrency,
                     items: _currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                     onChanged: (val) {
                       if (val != null && val != _selectedCurrency) {

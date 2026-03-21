@@ -69,7 +69,7 @@ class CardsTab extends ConsumerWidget {
                   gradient: LinearGradient(
                     colors: [
                       AppUtils.hexToColor(card.color),
-                      AppUtils.hexToColor(card.color).withOpacity(0.7),
+                      AppUtils.hexToColor(card.color).withValues(alpha: 0.7),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -77,7 +77,7 @@ class CardsTab extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppUtils.hexToColor(card.color).withOpacity(0.4),
+                      color: AppUtils.hexToColor(card.color).withValues(alpha: 0.4),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -129,14 +129,36 @@ class CardsTab extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('Limit', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                            Text(AppUtils.formatCurrency(card.limit, currency: currency), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text(
+                              AppUtils.formatCurrency(
+                                AppUtils.convertToBaseCurrency(card.limit, currency, 'TRY'),
+                                currency: 'TRY',
+                              ),
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            if (currency != 'TRY')
+                              Text(
+                                AppUtils.formatCurrency(card.limit, currency: currency),
+                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                              ),
                           ],
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             const Text('Güncel Borç', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                            Text(AppUtils.formatCurrency(card.currentDebt, currency: currency), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text(
+                              AppUtils.formatCurrency(
+                                AppUtils.convertToBaseCurrency(card.currentDebt, currency, 'TRY'),
+                                currency: 'TRY',
+                              ),
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            if (currency != 'TRY')
+                              Text(
+                                AppUtils.formatCurrency(card.currentDebt, currency: currency),
+                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                              ),
                           ],
                         ),
                       ],
@@ -148,7 +170,20 @@ class CardsTab extends ConsumerWidget {
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                     const SizedBox(height: 8),
-                    Text('Kullanılabilir: ${AppUtils.formatCurrency(availableLimit, currency: currency)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Kullanılabilir: ${AppUtils.formatCurrency(AppUtils.convertToBaseCurrency(availableLimit, currency, 'TRY'), currency: 'TRY')}',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                        if (currency != 'TRY')
+                          Text(
+                            AppUtils.formatCurrency(availableLimit, currency: currency),
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               );

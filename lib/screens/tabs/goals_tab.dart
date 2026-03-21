@@ -98,7 +98,7 @@ class GoalsTab extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: goal.isCompleted ? 0 : 2,
-      color: goal.isCompleted ? Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5) : null,
+      color: goal.isCompleted ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5) : null,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -110,7 +110,7 @@ class GoalsTab extends ConsumerWidget {
                 Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: themeColor.withOpacity(0.1),
+                      backgroundColor: themeColor.withValues(alpha: 0.1),
                       child: Text(
                         goal.icon.isNotEmpty ? goal.icon : '🎯',
                         style: const TextStyle(fontSize: 20),
@@ -161,7 +161,7 @@ class GoalsTab extends ConsumerWidget {
             const SizedBox(height: 16),
             LinearProgressIndicator(
               value: progress > 1.0 ? 1.0 : progress,
-              backgroundColor: Colors.grey.withOpacity(0.2),
+              backgroundColor: Colors.grey.withValues(alpha: 0.2),
               valueColor: AlwaysStoppedAnimation<Color>(goal.isCompleted ? Colors.green : themeColor),
               minHeight: 8,
               borderRadius: BorderRadius.circular(4),
@@ -186,7 +186,7 @@ class GoalsTab extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (goal.isCompleted ? Colors.green : themeColor).withOpacity(0.1),
+                    color: (goal.isCompleted ? Colors.green : themeColor).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -246,7 +246,7 @@ class GoalsTab extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedAccountId,
+                initialValue: selectedAccountId,
                 items: accounts.map((acc) => DropdownMenuItem(
                   value: acc.id,
                   child: Text('${acc.name} (${AppUtils.formatCurrency(acc.balance)})'),

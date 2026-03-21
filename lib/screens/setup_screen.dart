@@ -94,7 +94,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   Expanded(
                     flex: 2,
                     child: DropdownButtonFormField<String>(
-                      value: _selectedType,
+                      initialValue: _selectedType,
                       decoration: InputDecoration(
                         labelText: 'Hesap Türü',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -129,7 +129,7 @@ class _SetupScreenState extends State<SetupScreen> {
               const SizedBox(height: 16),
               
               DropdownButtonFormField<String>(
-                value: _selectedCurrency,
+                initialValue: _selectedCurrency,
                 decoration: InputDecoration(
                   labelText: 'Para Birimi',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

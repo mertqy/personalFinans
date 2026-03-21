@@ -1,3 +1,5 @@
+﻿import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/account.dart';
 import '../models/transaction.dart' as trx;
@@ -10,10 +12,27 @@ import '../models/subscription.dart';
 import '../models/exchange_rate.dart';
 
 class StorageService {
+  static late HiveAesCipher _cipher;
+
   static Future<void> init() async {
     await Hive.initFlutter();
+
+    // 1. Setup Encryption Key
+    const secureStorage = FlutterSecureStorage();
+    String? encryptionKeyString = await secureStorage.read(key: 'hive_key');
+    if (encryptionKeyString == null) {
+      final key = Hive.generateSecureKey();
+      await secureStorage.write(
+        key: 'hive_key',
+        value: base64UrlEncode(key),
+      );
+      encryptionKeyString = base64UrlEncode(key);
+    }
     
-    // Register Adapters
+    final encryptionKeyUint8List = base64Url.decode(encryptionKeyString);
+    _cipher = HiveAesCipher(encryptionKeyUint8List);
+    
+    // 2. Register Adapters
     Hive.registerAdapter(AccountAdapter()); // 0
     Hive.registerAdapter(trx.TransactionAdapter()); // 1
     Hive.registerAdapter(CreditCardAdapter()); // 2
@@ -24,17 +43,50 @@ class StorageService {
     Hive.registerAdapter(SubscriptionAdapter()); // 7
     Hive.registerAdapter(ExchangeRateAdapter()); // 8
     
-    // Open Boxes
+    // 3. Open Boxes (Settings remains unencrypted for general app access)
     await Hive.openBox('settings');
-    await Hive.openBox<Account>('accounts');
-    await Hive.openBox<trx.Transaction>('transactions');
-    await Hive.openBox<CreditCard>('credit_cards');
-    await Hive.openBox<Loan>('loans');
-    await Hive.openBox<Transfer>('transfers');
-    await Hive.openBox<Budget>('budgets');
-    await Hive.openBox<Goal>('goals');
-    await Hive.openBox<Subscription>('subscriptions');
-    await Hive.openBox<ExchangeRate>('exchange_rates');
+    
+    // Sensitive financial data is encrypted with automatic migration
+    await _openSecureBox<Account>('accounts');
+    await _openSecureBox<trx.Transaction>('transactions');
+    await _openSecureBox<CreditCard>('credit_cards');
+    await _openSecureBox<Loan>('loans');
+    await _openSecureBox<Transfer>('transfers');
+    await _openSecureBox<Budget>('budgets');
+    await _openSecureBox<Goal>('goals');
+    await _openSecureBox<Subscription>('subscriptions');
+    await _openSecureBox<ExchangeRate>('exchange_rates');
+  }
+
+  static Future<Box<E>> _openSecureBox<E>(String boxName) async {
+    try {
+      // Attempt to open securely first
+      return await Hive.openBox<E>(boxName, encryptionCipher: _cipher);
+    } catch (e) {
+      // Catch exceptions due to existing unencrypted box
+      // If it throws, we attempt a data migration from unencrypted to encrypted
+      try {
+        // Open unencrypted
+        final unencryptedBox = await Hive.openBox<E>(boxName);
+        final unencryptedData = Map<dynamic, E>.from(unencryptedBox.toMap());
+        await unencryptedBox.close();
+        
+        // Wipe old unencrypted DB file
+        await Hive.deleteBoxFromDisk(boxName);
+        
+        // Re-open with encryption enabled
+        final secureBox = await Hive.openBox<E>(boxName, encryptionCipher: _cipher);
+        if (unencryptedData.isNotEmpty) {
+          await secureBox.putAll(unencryptedData);
+        }
+        return secureBox;
+      } catch (migrationError) {
+        // Fallback: If even reading unencrypted fails, the box might be corrupted. 
+        // Best effort: Nuke and recreate securely.
+        await Hive.deleteBoxFromDisk(boxName);
+        return await Hive.openBox<E>(boxName, encryptionCipher: _cipher);
+      }
+    }
   }
 
   // ==== SETTINGS OPERATIONS ====

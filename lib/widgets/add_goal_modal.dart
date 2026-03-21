@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/budget_provider.dart';
@@ -136,7 +135,8 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
                 inputFormatters: [ThousandsSeparatorInputFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'Hedeflenen Tutar',
-                  prefixIcon: Icon(Icons.attach_money),
+                  prefixText: '₺ ',
+                  prefixIcon: Icon(Icons.flag_outlined),
                 ),
                 validator: (val) {
                   if (val == null || val.isEmpty) return 'Tutar giriniz';
@@ -182,7 +182,7 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Colors.grey.withOpacity(0.05),
+                        color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.05),
                         border: Border.all(
                           color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
                           width: 2,

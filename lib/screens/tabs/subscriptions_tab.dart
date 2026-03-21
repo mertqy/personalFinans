@@ -16,10 +16,14 @@ class SubscriptionsTab extends ConsumerWidget {
     final activeSubscriptions = subscriptions.where((s) => s.isActive).toList();
     final inactiveSubscriptions = subscriptions.where((s) => !s.isActive).toList();
 
-    // Toplam aylık maliyet
+    // Toplam aylık maliyet (TRY bazında)
     final totalMonthly = activeSubscriptions.fold(0.0, (sum, s) {
-      if (s.frequency == 'yearly') return sum + s.amount / 12;
-      return sum + s.amount;
+      final account = accounts.where((a) => a.id == s.accountId).firstOrNull;
+      final currency = account?.currency ?? 'TRY';
+      final amountInTRY = AppUtils.convertToBaseCurrency(s.amount, currency, 'TRY');
+      
+      if (s.frequency == 'yearly') return sum + amountInTRY / 12;
+      return sum + amountInTRY;
     });
 
     return Scaffold(
@@ -41,7 +45,7 @@ class SubscriptionsTab extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6C5CE7).withOpacity(0.3),
+                        color: const Color(0xFF6C5CE7).withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
                       ),
@@ -100,7 +104,7 @@ class SubscriptionsTab extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.subscriptions_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
+          Icon(Icons.subscriptions_outlined, size: 64, color: Colors.grey.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           const Text('Henüz abonelik eklemediniz.', style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 12),
@@ -116,9 +120,8 @@ class SubscriptionsTab extends ConsumerWidget {
 
   Widget _buildSubscriptionCard(BuildContext context, WidgetRef ref, sub, accounts, {bool inactive = false}) {
     final color = Color(int.parse(sub.color.replaceFirst('#', 'ff'), radix: 16));
-    final accountName = accounts.where((a) => a.id == sub.accountId).isNotEmpty
-        ? accounts.firstWhere((a) => a.id == sub.accountId).name
-        : '—';
+    final subAccount = accounts.where((a) => a.id == sub.accountId).firstOrNull;
+    final accountName = subAccount != null ? subAccount.name : '—';
 
     // Bir sonraki ödeme
     final now = DateTime.now();
@@ -133,7 +136,7 @@ class SubscriptionsTab extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border(left: BorderSide(color: inactive ? Colors.grey : color, width: 4)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Padding(
@@ -144,7 +147,7 @@ class SubscriptionsTab extends ConsumerWidget {
             Container(
               width: 48, height: 48,
               decoration: BoxDecoration(
-                color: (inactive ? Colors.grey : color).withOpacity(0.1),
+                color: (inactive ? Colors.grey : color).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(child: Text(sub.icon, style: const TextStyle(fontSize: 24))),
@@ -186,9 +189,17 @@ class SubscriptionsTab extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  AppUtils.formatCurrency(sub.amount, currency: 'TRY'),
+                  AppUtils.formatCurrency(
+                    AppUtils.convertToBaseCurrency(sub.amount, subAccount?.currency ?? 'TRY', 'TRY'),
+                    currency: 'TRY',
+                  ),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: inactive ? Colors.grey : color),
                 ),
+                if (subAccount != null && subAccount.currency != 'TRY')
+                  Text(
+                    AppUtils.formatCurrency(sub.amount, currency: subAccount.currency),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                 const SizedBox(height: 4),
                 PopupMenuButton(
                   icon: const Icon(Icons.more_vert, size: 20),

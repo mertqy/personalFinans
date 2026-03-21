@@ -133,7 +133,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: accounts.any((acc) => acc.id == _selectedAccountId) ? _selectedAccountId : null,
+              initialValue: accounts.any((acc) => acc.id == _selectedAccountId) ? _selectedAccountId : null,
               items: accounts.map((acc) => DropdownMenuItem(value: acc.id, child: Text('${acc.name} (${acc.currency})'))).toList(),
               onChanged: (val) {
                 if (val != null && val != _selectedAccountId) {
@@ -185,7 +185,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                 separatorBuilder: (context, index) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final color = _cardColors[index];
-                  final isSelected = _selectedColor.value == color.value;
+                  final isSelected = _selectedColor.toARGB32() == color.toARGB32();
                   return GestureDetector(
                     onTap: () => setState(() => _selectedColor = color),
                     child: Container(
@@ -200,7 +200,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
                         boxShadow: [
                           if (isSelected)
                             BoxShadow(
-                              color: color.withOpacity(0.4),
+                              color: color.withValues(alpha: 0.4),
                               blurRadius: 8,
                               spreadRadius: 2,
                             ),

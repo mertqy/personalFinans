@@ -35,18 +35,27 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
     _selectedName = widget.loan?.name;
     if (_selectedName == null && widget.loan == null) _selectedName = _loanNames.first;
     
+    final accounts = ref.read(accountProvider);
+    final loanAccount = accounts.where((a) => a.id == widget.loan?.accountId).firstOrNull;
+    final displayTotal = widget.loan != null 
+        ? AppUtils.convertToBaseCurrency(widget.loan!.totalAmount, loanAccount?.currency ?? 'TRY', 'TRY')
+        : null;
+    final displayPayment = widget.loan != null 
+        ? AppUtils.convertToBaseCurrency(widget.loan!.monthlyPayment, loanAccount?.currency ?? 'TRY', 'TRY')
+        : null;
+
     _totalController = TextEditingController(
-      text: widget.loan != null ? ThousandsSeparatorInputFormatter.format(widget.loan!.totalAmount) : '',
+      text: displayTotal != null ? ThousandsSeparatorInputFormatter.format(displayTotal) : '',
     );
     _paymentController = TextEditingController(
-      text: widget.loan != null ? ThousandsSeparatorInputFormatter.format(widget.loan!.monthlyPayment) : '',
+      text: displayPayment != null ? ThousandsSeparatorInputFormatter.format(displayPayment) : '',
     );
     _interestController = TextEditingController(text: widget.loan?.interestRate.toString() ?? '');
     _durationController = TextEditingController(text: '12'); // Default 12 months
     _selectedAccountId = widget.loan?.accountId;
 
     if (widget.loan != null) {
-      _totalRepayment = widget.loan!.totalAmount;
+      _totalRepayment = displayTotal ?? 0.0;
       // Estimate duration if possible, or keep default
     }
 
@@ -91,18 +100,25 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
         return;
       }
       
-      final payment = ThousandsSeparatorInputFormatter.parse(_paymentController.text);
+      final paymentInTry = ThousandsSeparatorInputFormatter.parse(_paymentController.text);
+      final principalInTry = ThousandsSeparatorInputFormatter.parse(_totalController.text);
+      final totalRepaymentInTry = _totalRepayment;
       final interest = double.tryParse(_interestController.text.replaceAll(',', '.')) ?? 0.0;
 
       final accounts = ref.read(accountProvider);
       final selectedAccount = accounts.firstWhere((acc) => acc.id == _selectedAccountId);
+      final currency = selectedAccount.currency;
+
+      final payment = AppUtils.convertToBaseCurrency(paymentInTry, 'TRY', currency);
+      final principal = AppUtils.convertToBaseCurrency(principalInTry, 'TRY', currency);
+      final totalRepayment = AppUtils.convertToBaseCurrency(totalRepaymentInTry, 'TRY', currency);
 
       if (widget.loan != null) {
         // Edit
         final updatedLoan = widget.loan!;
         updatedLoan.name = _selectedName!;
         updatedLoan.bank = selectedAccount.name;
-        updatedLoan.totalAmount = _totalRepayment;
+        updatedLoan.totalAmount = totalRepayment;
         updatedLoan.monthlyPayment = payment;
         updatedLoan.interestRate = interest;
         updatedLoan.accountId = _selectedAccountId!;
@@ -117,8 +133,8 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
           bank: selectedAccount.name,
           type: _selectedName == 'Araç' ? 'auto' : (_selectedName == 'Konut' ? 'mortgage' : 'personal'),
           accountId: _selectedAccountId!,
-          totalAmount: _totalRepayment,
-          remainingAmount: _totalRepayment,
+          totalAmount: totalRepayment,
+          remainingAmount: totalRepayment,
           monthlyPayment: payment,
           interestRate: interest,
           startDate: DateTime.now(),
@@ -133,7 +149,7 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
           id: AppUtils.generateId(),
           userId: 'temp_user_id',
           type: 'income',
-          amount: ThousandsSeparatorInputFormatter.parse(_totalController.text), // Sadece anapara
+          amount: principal, // Sadece anapara
           category: 'Kredi Girişi',
           description: '${loan.name} Kredisi Alındı',
           date: DateTime.now(),
@@ -180,7 +196,7 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _loanNames.contains(_selectedName) ? _selectedName : null,
+                initialValue: _loanNames.contains(_selectedName) ? _selectedName : null,
                 items: _loanNames.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
                 onChanged: (val) => setState(() => _selectedName = val),
                 decoration: const InputDecoration(labelText: 'Kredi Türü'),
@@ -188,7 +204,7 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: accounts.any((acc) => acc.id == _selectedAccountId) ? _selectedAccountId : null,
+                initialValue: accounts.any((acc) => acc.id == _selectedAccountId) ? _selectedAccountId : null,
                 items: accounts.map((acc) => DropdownMenuItem(value: acc.id, child: Text('${acc.name} (${acc.currency})'))).toList(),
                 onChanged: (val) => setState(() => _selectedAccountId = val),
                 decoration: const InputDecoration(labelText: 'Bağlı Banka Hesabı'),
@@ -199,28 +215,22 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
                 children: [
                   Expanded(
                     flex: 2,
-                    child: Builder(
-                      builder: (context) {
-                        final selectedAccount = accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
-                        final currencySymbol = selectedAccount != null ? AppUtils.getCurrencySymbol(selectedAccount.currency) : '₺';
-                        return TextFormField(
-                          controller: _totalController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            ThousandsSeparatorInputFormatter(),
-                          ],
-                          decoration: InputDecoration(
-                            labelText: 'Kredi Tutarı',
-                            prefixText: '$currencySymbol ',
-                          ),
-                          validator: (val) {
-                            if (val == null || val.isEmpty) return 'Gerekli';
-                            if (double.tryParse(val.replaceAll(',', '.')) == null) return 'Geçersiz';
-                            return null;
-                          },
-                        );
-                      }
+                    child: TextFormField(
+                      controller: _totalController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        ThousandsSeparatorInputFormatter(),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Kredi Tutarı',
+                        prefixText: '₺ ',
+                      ),
+                      validator: (val) {
+                        if (val == null || val.isEmpty) return 'Gerekli';
+                        if (double.tryParse(val.replaceAll(',', '.')) == null) return 'Geçersiz';
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -256,20 +266,14 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
                   const SizedBox(width: 16),
                   Expanded(
                     flex: 2,
-                    child: Builder(
-                      builder: (context) {
-                        final selectedAccount = accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
-                        final currencySymbol = selectedAccount != null ? AppUtils.getCurrencySymbol(selectedAccount.currency) : '₺';
-                        return TextFormField(
-                          controller: _paymentController,
-                          readOnly: true,
-                          decoration: InputDecoration(
-                            labelText: 'Aylık Taksit',
-                            prefixText: '$currencySymbol ',
-                            filled: true,
-                          ),
-                        );
-                      }
+                    child: TextFormField(
+                      controller: _paymentController,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Aylık Taksit',
+                        prefixText: '₺ ',
+                        filled: true,
+                      ),
                     ),
                   ),
                 ],
@@ -278,9 +282,9 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

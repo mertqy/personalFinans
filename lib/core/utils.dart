@@ -13,7 +13,7 @@ class AppUtils {
   }
 
   static String colorToHex(Color color) {
-    return '#${color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+    return '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
   }
 
   static Color hexToColor(String hex) {
@@ -140,6 +140,29 @@ class AppUtils {
     return cat != null ? cat['icon'] as String : '❓';
   }
 
+  /// Bir işlemin orijinal para birimini bulur (hesap veya karttan)
+  static String getEffectiveCurrency(dynamic tx, List<dynamic> accounts, List<dynamic> cards) {
+    if (tx.creditCardId != null) {
+      final cardMatches = cards.where((c) => c.id == tx.creditCardId).toList();
+      if (cardMatches.isNotEmpty) {
+        final card = cardMatches.first;
+        final accMatches = accounts.where((a) => a.id == card.accountId).toList();
+        if (accMatches.isNotEmpty) return accMatches.first.currency;
+      }
+    } else if (tx.accountId.isNotEmpty) {
+      final accMatches = accounts.where((a) => a.id == tx.accountId).toList();
+      if (accMatches.isNotEmpty) return accMatches.first.currency;
+    }
+    return 'TRY';
+  }
+
+  /// İşlem tutarını ekran gösterimi için TRY'ye çevirir (Transfer değilse)
+  static double getDisplayTRYAmount(dynamic tx, List<dynamic> accounts, List<dynamic> cards) {
+    if (tx.type == 'transfer') return tx.amount;
+    final String currency = getEffectiveCurrency(tx, accounts, cards);
+    return convertToBaseCurrency(tx.amount, currency, 'TRY');
+  }
+
   static String getAccountTypeLabel(String type) {
     switch (type.toLowerCase()) {
       case 'cash': return 'Nakit';
@@ -147,6 +170,16 @@ class AppUtils {
       case 'savings': return 'Birikim';
       case 'investment': return 'Yatırım';
       default: return type[0].toUpperCase() + type.substring(1);
+    }
+  }
+
+  static IconData getAccountIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'cash': return Icons.money;
+      case 'bank': return Icons.account_balance;
+      case 'savings': return Icons.savings;
+      case 'investment': return Icons.trending_up;
+      default: return Icons.account_balance_wallet;
     }
   }
 }

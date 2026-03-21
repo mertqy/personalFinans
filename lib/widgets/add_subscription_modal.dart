@@ -50,8 +50,14 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
     super.initState();
     final sub = widget.subscription;
     _nameController = TextEditingController(text: sub?.name);
+    final accounts = ref.read(accountProvider);
+    final subAccount = accounts.where((a) => a.id == sub?.accountId).firstOrNull;
+    final displayAmount = sub != null 
+        ? AppUtils.convertToBaseCurrency(sub.amount, subAccount?.currency ?? 'TRY', 'TRY')
+        : null;
+
     _amountController = TextEditingController(
-      text: sub != null ? ThousandsSeparatorInputFormatter.format(sub.amount) : '',
+      text: displayAmount != null ? ThousandsSeparatorInputFormatter.format(displayAmount) : '',
     );
     _billingDay = sub?.billingDay ?? 1;
     _frequency = sub?.frequency ?? 'monthly';
@@ -94,7 +100,7 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                   child: Container(
                     width: 40, height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.3),
+                      color: Colors.grey.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -124,8 +130,8 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
-                                : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
+                                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
                             border: isSelected
                                 ? Border.all(color: Theme.of(context).colorScheme.primary)
@@ -154,28 +160,22 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                 ),
                 const SizedBox(height: 12),
 
-                Builder(
-                  builder: (context) {
-                    final selectedAccount = accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
-                    final currency = selectedAccount?.currency ?? '₺';
-                    return TextFormField(
-                      controller: _amountController,
-                      decoration: InputDecoration(
-                        labelText: 'Aylık Tutar (${AppUtils.getCurrencySymbol(currency)})', 
-                        border: const OutlineInputBorder()
-                      ),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        ThousandsSeparatorInputFormatter(),
-                      ],
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Gerekli';
-                        if (ThousandsSeparatorInputFormatter.parse(v) <= 0) return 'Geçerli bir tutar girin';
-                        return null;
-                      },
-                    );
-                  }
+                TextFormField(
+                  controller: _amountController,
+                  decoration: const InputDecoration(
+                    labelText: 'Aylık Tutar (₺)', 
+                    border: OutlineInputBorder()
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    ThousandsSeparatorInputFormatter(),
+                  ],
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Gerekli';
+                    if (ThousandsSeparatorInputFormatter.parse(v) <= 0) return 'Geçerli bir tutar girin';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12),
 
@@ -184,7 +184,7 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<int>(
-                        value: List.generate(28, (i) => i + 1).contains(_billingDay) ? _billingDay : null,
+                        initialValue: List.generate(28, (i) => i + 1).contains(_billingDay) ? _billingDay : null,
                         decoration: const InputDecoration(labelText: 'Ödeme Günü', border: OutlineInputBorder()),
                         items: List.generate(28, (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}'))),
                         onChanged: (v) => setState(() => _billingDay = v!),
@@ -193,7 +193,7 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: ['monthly', 'yearly'].contains(_frequency) ? _frequency : null,
+                        initialValue: ['monthly', 'yearly'].contains(_frequency) ? _frequency : null,
                         decoration: const InputDecoration(labelText: 'Periyot', border: OutlineInputBorder()),
                         items: const [
                           DropdownMenuItem(value: 'monthly', child: Text('Aylık')),
@@ -208,7 +208,7 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
 
                 // Hesap Seçimi
                 DropdownButtonFormField<String>(
-                  value: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
+                  initialValue: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
                   decoration: const InputDecoration(labelText: 'Bağlı Hesap', border: OutlineInputBorder()),
                   items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
                   onChanged: (v) => setState(() => _selectedAccountId = v),
@@ -231,7 +231,7 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                           color: Color(int.parse(c.replaceFirst('#', 'ff'), radix: 16)),
                           borderRadius: BorderRadius.circular(8),
                           border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
-                          boxShadow: isSelected ? [BoxShadow(color: Color(int.parse(c.replaceFirst('#', 'ff'), radix: 16)).withOpacity(0.5), blurRadius: 8)] : null,
+                          boxShadow: isSelected ? [BoxShadow(color: Color(int.parse(c.replaceFirst('#', 'ff'), radix: 16)).withValues(alpha: 0.5), blurRadius: 8)] : null,
                         ),
                       ),
                     );
@@ -260,11 +260,16 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
     if (!_formKey.currentState!.validate()) return;
 
     final now = DateTime.now();
+    final amountInTry = ThousandsSeparatorInputFormatter.parse(_amountController.text);
+    final accounts = ref.read(accountProvider);
+    final selectedAccount = accounts.firstWhere((a) => a.id == _selectedAccountId);
+    final amount = AppUtils.convertToBaseCurrency(amountInTry, 'TRY', selectedAccount.currency);
+
     final subscription = Subscription(
       id: widget.subscription?.id ?? AppUtils.generateId(),
       userId: 'temp_user',
       name: _nameController.text,
-      amount: ThousandsSeparatorInputFormatter.parse(_amountController.text),
+      amount: amount,
       category: 'subscription',
       accountId: _selectedAccountId!,
       billingDay: _billingDay,

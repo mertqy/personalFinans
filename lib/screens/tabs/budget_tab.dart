@@ -19,26 +19,61 @@ class BudgetTab extends ConsumerWidget {
 
     return budgets.isEmpty
         ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.pie_chart_outline, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text('Henüz bir bütçe oluşturmadınız.', style: TextStyle(color: Colors.grey)),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (c) => const AddBudgetModal(),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Bütçe Ekle'),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.pie_chart_rounded,
+                      size: 72,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Bütçeniz Kontrol Altında Olsun',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Harcamalarınızı sınırlandırmak ve ay sonunu rahat getirmek için farklı kategorilerde bütçeler belirleyin.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                          height: 1.5,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+                  FilledButton.icon(
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (c) => const AddBudgetModal(),
+                      );
+                    },
+                    icon: const Icon(Icons.add_chart_rounded),
+                    label: const Text('İlk Bütçemi Oluştur', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
         : ListView.builder(
@@ -116,7 +151,7 @@ class BudgetTab extends ConsumerWidget {
                       const SizedBox(height: 16),
                       LinearProgressIndicator(
                         value: progress > 1.0 ? 1.0 : progress,
-                        backgroundColor: Colors.grey.withOpacity(0.2),
+                        backgroundColor: Colors.grey.withValues(alpha: 0.2),
                         valueColor: AlwaysStoppedAnimation<Color>(isOverBudget ? Colors.red : Theme.of(context).colorScheme.primary),
                         minHeight: 8,
                         borderRadius: BorderRadius.circular(4),

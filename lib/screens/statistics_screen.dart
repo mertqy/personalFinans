@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:intl/intl.dart';
-import '../core/constants.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/credit_card_provider.dart';
 import '../core/utils.dart';
+import '../widgets/spending_heatmap.dart';
+import '../widgets/custom_statistics_charts.dart';
 
 class StatisticsScreen extends ConsumerStatefulWidget {
   const StatisticsScreen({super.key});
@@ -15,360 +14,525 @@ class StatisticsScreen extends ConsumerStatefulWidget {
   ConsumerState<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
-class _ChartData {
-  _ChartData(this.x, this.y, [this.color]);
-  final dynamic x;
-  final double y;
-  final Color? color;
-}
-
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
-  bool isExpenseView = true;
-  late TooltipBehavior _trendTooltip;
-  late TooltipBehavior _comparisonTooltip;
-  late TooltipBehavior _pieTooltip;
-
-  @override
-  void initState() {
-    final symbol = AppUtils.getCurrencySymbol('TRY');
-    _trendTooltip = TooltipBehavior(enable: true, format: 'point.x : $symbol point.y');
-    _comparisonTooltip = TooltipBehavior(enable: true, shared: true, format: '$symbol point.y');
-    _pieTooltip = TooltipBehavior(enable: true, format: 'point.x : $symbol point.y');
-    super.initState();
-  }
+  int _selectedAccountIndex = 0;
+  int _selectedTimeframeIndex = 2; // 0: Yıllık, 1: Aylık, 2: Haftalık, 3: Günlük
 
   @override
   Widget build(BuildContext context) {
     final transactions = ref.watch(transactionProvider);
     final accounts = ref.watch(accountProvider);
     final creditCards = ref.watch(creditCardProvider);
-    
-    final filteredTransactions = transactions
-        .where((t) => t.type == (isExpenseView ? 'expense' : 'income') && !t.isPlanned)
-        .toList();
 
-    String getTxCurrency(dynamic tx) {
-      if (tx.accountId.isNotEmpty) {
+    final now = DateTime.now();
+
+    // Filter transactions based on selection (Account filter)
+    final filteredTransactions = transactions.where((tx) {
+      if (tx.isPlanned) return false;
+      bool accountMatch = true;
+      if (_selectedAccountIndex > 0) {
+        final selectedType = ['Tüm Hesaplar', 'Nakit', 'Kredi Kartı', 'Banka'][_selectedAccountIndex];
         final acc = accounts.where((a) => a.id == tx.accountId).firstOrNull;
-        if (acc != null) return acc.currency;
-      } else if (tx.creditCardId != null) {
-        final card = creditCards.where((c) => c.id == tx.creditCardId).firstOrNull;
-        if (card != null) {
-          final acc = accounts.where((a) => a.id == card.accountId).firstOrNull;
-          if (acc != null) return acc.currency;
+        if (acc == null) {
+          accountMatch = selectedType == 'Nakit' && tx.accountId.isEmpty;
+        } else {
+          accountMatch = acc.type == selectedType;
         }
       }
-      return 'TRY';
-    }
-    
-    // Group by category
-    final Map<String, double> categoryMap = {};
-    double totalAmount = 0;
-    for (var tx in filteredTransactions) {
-      final normalizedCategory = AppUtils.getCategoryById(tx.category)?['id'] ?? tx.category;
-      final convertedAmount = AppUtils.convertToBaseCurrency(tx.amount, getTxCurrency(tx), 'TRY');
-      categoryMap[normalizedCategory] = (categoryMap[normalizedCategory] ?? 0) + convertedAmount;
-      totalAmount += convertedAmount;
+      return accountMatch;
+    }).toList();
+
+    // Data Aggregation based on timeframe
+    final List<double> chartData;
+    final List<String> chartLabels;
+    final List<double> incomeChartData;
+    final List<double> expenseChartData;
+    double totalExpense = 0.0;
+
+    switch (_selectedTimeframeIndex) {
+      case 0: // Yıllık
+        chartData = List.filled(12, 0.0);
+        incomeChartData = List.filled(12, 0.0);
+        expenseChartData = List.filled(12, 0.0);
+        chartLabels = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
+        for (var tx in filteredTransactions.where((tx) => tx.date.year == now.year)) {
+          final amount = AppUtils.getDisplayTRYAmount(tx, accounts, creditCards);
+          int m = tx.date.month - 1;
+          if (tx.type == 'income') {
+            incomeChartData[m] += amount;
+          } else if (tx.type == 'expense') {
+            chartData[m] += amount;
+            expenseChartData[m] += amount;
+            totalExpense += amount;
+          }
+        }
+        break;
+      case 1: // Aylık
+        int lastDay = DateTime(now.year, now.month + 1, 0).day;
+        chartData = List.filled(lastDay, 0.0);
+        incomeChartData = List.filled(lastDay, 0.0);
+        expenseChartData = List.filled(lastDay, 0.0);
+        chartLabels = List.generate(lastDay, (i) => (i + 1) % 5 == 0 ? (i + 1).toString() : "");
+        for (var tx in filteredTransactions.where((tx) => tx.date.year == now.year && tx.date.month == now.month)) {
+          final amount = AppUtils.getDisplayTRYAmount(tx, accounts, creditCards);
+          int d = tx.date.day - 1;
+          if (tx.type == 'income') {
+            incomeChartData[d] += amount;
+          } else if (tx.type == 'expense') {
+            chartData[d] += amount;
+            expenseChartData[d] += amount;
+            totalExpense += amount;
+          }
+        }
+        break;
+      case 3: // Günlük
+        chartData = List.filled(24, 0.0);
+        incomeChartData = List.filled(24, 0.0);
+        expenseChartData = List.filled(24, 0.0);
+        chartLabels = List.generate(24, (i) => i % 4 == 0 ? "${i.toString().padLeft(2, '0')}:00" : "");
+        for (var tx in filteredTransactions.where((tx) => tx.date.year == now.year && tx.date.month == now.month && tx.date.day == now.day)) {
+          final amount = AppUtils.getDisplayTRYAmount(tx, accounts, creditCards);
+          int h = tx.date.hour;
+          if (tx.type == 'income') {
+            incomeChartData[h] += amount;
+          } else if (tx.type == 'expense') {
+            chartData[h] += amount;
+            expenseChartData[h] += amount;
+            totalExpense += amount;
+          }
+        }
+        break;
+      case 2: // Haftalık
+      default:
+        chartData = List.filled(7, 0.0);
+        incomeChartData = List.filled(7, 0.0);
+        expenseChartData = List.filled(7, 0.0);
+        chartLabels = ['PZT', 'SAL', 'ÇAR', 'PER', 'CUM', 'CMT', 'PAZ'];
+        DateTime startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+        for (var tx in filteredTransactions) {
+          final txDateOnly = DateTime(tx.date.year, tx.date.month, tx.date.day);
+          final diff = txDateOnly.difference(startOfWeek).inDays;
+          if (diff >= 0 && diff < 7) {
+            final amount = AppUtils.getDisplayTRYAmount(tx, accounts, creditCards);
+            if (tx.type == 'income') {
+              incomeChartData[diff] += amount;
+            } else if (tx.type == 'expense') {
+              chartData[diff] += amount;
+              expenseChartData[diff] += amount;
+              totalExpense += amount;
+            }
+          }
+        }
+        break;
     }
 
+    // Category Breakdown Calculation (Based on same filters)
+    final Map<String, double> categoryMap = {};
+    for (var tx in filteredTransactions.where((t) => t.type == 'expense')) {
+      // Filter for timeframe as well for category breakdown consistency
+      bool inTimeframe = false;
+      switch (_selectedTimeframeIndex) {
+        case 0: inTimeframe = tx.date.year == now.year; break;
+        case 1: inTimeframe = tx.date.year == now.year && tx.date.month == now.month; break;
+        case 3: inTimeframe = tx.date.year == now.year && tx.date.month == now.month && tx.date.day == now.day; break;
+        case 2: 
+          DateTime startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+          final diff = DateTime(tx.date.year, tx.date.month, tx.date.day).difference(startOfWeek).inDays;
+          inTimeframe = diff >= 0 && diff < 7;
+          break;
+      }
+      
+      if (inTimeframe) {
+        final amount = AppUtils.getDisplayTRYAmount(tx, accounts, creditCards);
+        categoryMap[tx.category] = (categoryMap[tx.category] ?? 0) + amount;
+      }
+    }
     final sortedCategories = categoryMap.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Colors for pie chart
-    final chartColors = [
-      AppConstants.chartColors['PRIMARY']!,
-      AppConstants.chartColors['WARNING']!,
-      AppConstants.chartColors['INFO']!,
-      AppConstants.chartColors['PURPLE']!,
-      AppConstants.chartColors['SUCCESS']!,
-      AppConstants.chartColors['PINK']!,
-      AppConstants.chartColors['DANGER']!,
-    ];
 
-    // Pie chart için verileri düzenle (ilk 6 + Diğer)
-    final List<_ChartData> pieData = [];
-    if (sortedCategories.length <= 7) {
-      for (int i = 0; i < sortedCategories.length; i++) {
-        final e = sortedCategories[i];
-        pieData.add(_ChartData(AppUtils.getCategoryName(e.key), e.value, chartColors[i % chartColors.length]));
-      }
-    } else {
-      for (int i = 0; i < 6; i++) {
-        final e = sortedCategories[i];
-        pieData.add(_ChartData(AppUtils.getCategoryName(e.key), e.value, chartColors[i]));
-      }
-      double otherTotal = 0;
-      for (int i = 6; i < sortedCategories.length; i++) {
-        otherTotal += sortedCategories[i].value;
-      }
-      pieData.add(_ChartData('Diğer', otherTotal, Colors.grey));
-    }
-
-    // Data for Trend Chart (Last 7 days)
-    final now = DateTime.now();
-    final last7Days = List.generate(7, (index) {
-      final date = now.subtract(Duration(days: 6 - index));
-      return DateTime(date.year, date.month, date.day);
-    });
-
-    final List<_ChartData> trendData = last7Days.map((date) {
-      final dayTotal = filteredTransactions
-          .where((t) => t.date.year == date.year && t.date.month == date.month && t.date.day == date.day)
-          .fold(0.0, (sum, t) => sum + AppUtils.convertToBaseCurrency(t.amount, getTxCurrency(t), 'TRY'));
-      return _ChartData(DateFormat('E', 'tr_TR').format(date), dayTotal);
-    }).toList();
-
-    // Data for Monthly Comparison
-    final currentMonth = now.month;
-    final currentYear = now.year;
-    final prevMonthDate = DateTime(now.year, now.month - 1);
-    final prevMonth = prevMonthDate.month;
-    final prevYear = prevMonthDate.year;
-
-    final currentMonthDays = DateTime(currentYear, currentMonth + 1, 0).day;
-    final List<_ChartData> currentMonthData = List.generate(currentMonthDays, (index) {
-      final day = index + 1;
-      final dayTotal = filteredTransactions
-          .where((t) => t.date.year == currentYear && t.date.month == currentMonth && t.date.day == day)
-          .fold(0.0, (sum, t) => sum + AppUtils.convertToBaseCurrency(t.amount, getTxCurrency(t), 'TRY'));
-      return _ChartData(day, dayTotal);
-    });
-
-    final prevMonthDays = DateTime(prevYear, prevMonth + 1, 0).day;
-    final List<_ChartData> prevMonthData = List.generate(prevMonthDays, (index) {
-      final day = index + 1;
-      final dayTotal = filteredTransactions
-          .where((t) => t.date.year == prevYear && t.date.month == prevMonth && t.date.day == day)
-          .fold(0.0, (sum, t) => sum + AppUtils.convertToBaseCurrency(t.amount, getTxCurrency(t), 'TRY'));
-      return _ChartData(day, dayTotal);
-    });
-
-    final themeColor = isExpenseView 
-        ? Theme.of(context).colorScheme.primary 
-        : Colors.green;
+    // Constants for colors matches image
+    const Color bgColor = Color(0xFF0F121C); // Very dark bg
+    const Color cardColor = Color(0xFF1B2033); // Card bg
+    const Color primaryPurple = Color(0xFF6B5BF2);
+    const Color successGreen = Color(0xFF00D287);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('İstatistikler')),
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: bgColor,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Detaylı İstatistikler',
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune, color: Colors.white),
+            onPressed: () {},
+          )
+        ],
+      ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildToggleControl(),
+              // Horizontal Account Filters
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildFilterPill('Tüm Hesaplar', 0, _selectedAccountIndex, primaryPurple),
+                    const SizedBox(width: 8),
+                    _buildFilterPill('Nakit', 1, _selectedAccountIndex, primaryPurple),
+                    const SizedBox(width: 8),
+                    _buildFilterPill('Kredi Kartı', 2, _selectedAccountIndex, primaryPurple),
+                    const SizedBox(width: 8),
+                    _buildFilterPill('Banka', 3, _selectedAccountIndex, primaryPurple),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Timeframe Filters
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildTimeframeTab('Yıllık', 0)),
+                    Expanded(child: _buildTimeframeTab('Aylık', 1)),
+                    Expanded(child: _buildTimeframeTab('Haftalık', 2)),
+                    Expanded(child: _buildTimeframeTab('Günlük', 3)),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
 
-              // Pie Chart
-              _buildSectionTitle(isExpenseView ? 'Kategori Bazlı Harcama' : 'Kategori Bazlı Gelir'),
-              const SizedBox(height: 16),
-              if (totalAmount > 0) ...[
-                _buildPieChart(pieData, totalAmount, themeColor),
-                const SizedBox(height: 16),
-                _buildCategoryList(pieData, totalAmount),
-              ] else 
-                _buildEmptyState(isExpenseView ? 'Harcama verisi bulunamadı' : 'Gelir verisi bulunamadı'),
-
-              const SizedBox(height: 40),
-
-              // Trend Chart
-              _buildSectionTitle('Son 7 Günlük Trend'),
-              const SizedBox(height: 16),
-              if (totalAmount > 0)
-                _buildTrendChart(trendData, themeColor)
-              else 
-                _buildEmptyState('Trend verisi yok'),
-              
-              const SizedBox(height: 40),
-
-              // Comparison Chart
-              _buildSectionTitle('Aylık Karşılaştırma'),
-              const SizedBox(height: 16),
-              if (totalAmount > 0)
-                _buildComparisonChart(currentMonthData, prevMonthData, themeColor)
-              else 
-                _buildEmptyState('Karşılaştırma verisi yok'),
-
-              const SizedBox(height: 32),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToggleControl() {
-    return Center(
-      child: SegmentedButton<bool>(
-        segments: const [
-          ButtonSegment(value: true, label: Text('Giderler'), icon: Icon(Icons.outbound)),
-          ButtonSegment(value: false, label: Text('Gelirler'), icon: Icon(Icons.move_to_inbox)),
-        ],
-        selected: {isExpenseView},
-        onSelectionChanged: (newSelection) => setState(() => isExpenseView = newSelection.first),
-      ),
-    );
-  }
-
-  Widget _buildPieChart(List<_ChartData> data, double total, Color centerColor) {
-    return SizedBox(
-      height: 250,
-      child: SfCircularChart(
-        tooltipBehavior: _pieTooltip,
-        annotations: <CircularChartAnnotation>[
-          CircularChartAnnotation(
-            widget: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Toplam', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                Text(
-                  AppUtils.formatCurrency(total),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: centerColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        series: <CircularSeries<_ChartData, String>>[
-          DoughnutSeries<_ChartData, String>(
-            dataSource: data,
-            xValueMapper: (_ChartData d, _) => d.x as String,
-            yValueMapper: (_ChartData d, _) => d.y,
-            pointColorMapper: (_ChartData d, _) => d.color,
-            innerRadius: '70%',
-            radius: '100%',
-            dataLabelSettings: const DataLabelSettings(
-              isVisible: true,
-              labelPosition: ChartDataLabelPosition.outside,
-              textStyle: TextStyle(fontSize: 10),
-            ),
-            enableTooltip: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrendChart(List<_ChartData> data, Color color) {
-    return SizedBox(
-      height: 220,
-      child: SfCartesianChart(
-        primaryXAxis: const CategoryAxis(
-          majorGridLines: MajorGridLines(width: 0),
-          labelStyle: TextStyle(fontSize: 10),
-        ),
-        primaryYAxis: const NumericAxis(
-          minimum: 0,
-          majorGridLines: MajorGridLines(dashArray: [5, 5]),
-          labelStyle: TextStyle(fontSize: 10),
-        ),
-        tooltipBehavior: _trendTooltip,
-        series: <CartesianSeries<_ChartData, String>>[
-          SplineAreaSeries<_ChartData, String>(
-            dataSource: data,
-            xValueMapper: (_ChartData d, _) => d.x as String,
-            yValueMapper: (_ChartData d, _) => d.y,
-            color: color.withOpacity(0.1),
-            borderColor: color,
-            borderWidth: 3,
-            markerSettings: MarkerSettings(
-              isVisible: true,
-              height: 4,
-              width: 4,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildComparisonChart(List<_ChartData> current, List<_ChartData> prev, Color color) {
-    return SizedBox(
-      height: 220,
-      child: SfCartesianChart(
-        legend: const Legend(isVisible: true, position: LegendPosition.top),
-        primaryXAxis: const NumericAxis(
-          majorGridLines: MajorGridLines(width: 0),
-          interval: 5,
-          labelStyle: TextStyle(fontSize: 10),
-        ),
-        primaryYAxis: const NumericAxis(
-          minimum: 0,
-          majorGridLines: MajorGridLines(dashArray: [5, 5]),
-          labelStyle: TextStyle(fontSize: 10),
-        ),
-        tooltipBehavior: _comparisonTooltip,
-        series: <CartesianSeries<_ChartData, num>>[
-          SplineSeries<_ChartData, num>(
-            name: 'Bu Ay',
-            dataSource: current,
-            xValueMapper: (_ChartData d, _) => d.x as num,
-            yValueMapper: (_ChartData d, _) => d.y,
-            color: color,
-            width: 3,
-          ),
-          SplineSeries<_ChartData, num>(
-            name: 'Geçen Ay',
-            dataSource: prev,
-            xValueMapper: (_ChartData d, _) => d.x as num,
-            yValueMapper: (_ChartData d, _) => d.y,
-            color: Colors.grey.withOpacity(0.4),
-            width: 2,
-            dashArray: const [5, 5],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryList(List<_ChartData> pieData, double total) {
-    return Column(
-      children: List.generate(pieData.length, (i) {
-        final d = pieData[i];
-        final percentage = (d.y / total) * 100;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6.0),
-          child: Row(
-            children: [
+              // Net Değişim Card
               Container(
-                width: 10, height: 10,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: d.color),
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'TOPLAM HARCAMA',
+                              style: TextStyle(
+
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              AppUtils.formatCurrency(totalExpense, currency: 'TRY'),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -1),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: successGreen.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.trending_down, color: successGreen, size: 14),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    '%15.2',
+                                    style: TextStyle(
+                                        color: successGreen,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Geçen haftaya göre',
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                  fontSize: 10),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 48),
+                    // Custom Chart (Bar Chart beneath Line Chart)
+                    SizedBox(
+                      height: 180,
+                      child: CustomSpendingChart(
+                        data: chartData,
+                        labels: chartLabels,
+                        primaryColor: primaryPurple,
+                        selectedTimeframeIndex: _selectedTimeframeIndex,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(d.x as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 32),
+
+
+              const SizedBox(height: 16),
+
+
+              // Harcama Yoğunluğu
+              SpendingHeatmap(
+                filteredTransactions: filteredTransactions,
+                accounts: accounts,
+                creditCards: creditCards,
               ),
-              Text('%${NumberFormat('##0.0', 'tr_TR').format(percentage)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(width: 15),
-              Text(AppUtils.formatCurrency(d.y), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 32),
+
+              // Gelir ve Gider Kıyaslaması
+              const Text(
+                'Gelir ve Gider Kıyaslaması',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                height: 250,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: CustomComparisonBarChart(
+                        incomeData: incomeChartData,
+                        expenseData: expenseChartData,
+                        labels: chartLabels,
+                        selectedTimeframeIndex: _selectedTimeframeIndex,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLegendPair(const Color(0xFF4ADE80), 'Gelir'),
+                        const SizedBox(width: 24),
+                        _buildLegendPair(const Color(0xFFF87171), 'Gider'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Kategori Dağılımı (New Custom Chart)
+              const Text(
+                'Kategori Dağılımı',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 200,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'TOPLAM',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              Text(
+                                AppUtils.formatCurrency(totalExpense, currency: 'TRY').split(',')[0],
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          CustomDonutChart(
+                            data: sortedCategories.take(5).toList(),
+                            total: totalExpense,
+                            colors: const [
+                              Color(0xFF6B5BF2),
+                              Color(0xFF00D287),
+                              Color(0xFFFFB300),
+                              Color(0xFFFF4848),
+                              Color(0xFF00B2FF),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Column(
+                      children: sortedCategories.take(5).map((cat) {
+                         final index = sortedCategories.indexOf(cat);
+                         final colors = [
+                                    const Color(0xFF6B5BF2),
+                                    const Color(0xFF00D287),
+                                    const Color(0xFFFFB300),
+                                    const Color(0xFFFF4848),
+                                    const Color(0xFF00B2FF),
+                                  ];
+                         final percentage = (totalExpense > 0) ? (cat.value / totalExpense * 100) : 0.0;
+                         return Padding(
+                           padding: const EdgeInsets.only(bottom: 12.0),
+                           child: Row(
+                             children: [
+                               Container(
+                                 width: 12,
+                                 height: 12,
+                                 decoration: BoxDecoration(
+                                   color: colors[index % colors.length],
+                                   shape: BoxShape.circle,
+                                 ),
+                               ),
+                               const SizedBox(width: 8),
+                               Expanded(
+                                 child: Text(
+                                   AppUtils.getCategoryName(cat.key),
+                                   style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                 ),
+                               ),
+                               Text(
+                                 "${percentage.toStringAsFixed(1)}%",
+                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                               ),
+                               const SizedBox(width: 12),
+                               Text(
+                                 AppUtils.formatCurrency(cat.value),
+                                 style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                               ),
+                             ],
+                           ),
+                         );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
             ],
           ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 0.3));
-  }
-
-  Widget _buildEmptyState(String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Column(
-          children: [
-            Icon(Icons.pie_chart_outline, size: 40, color: Colors.grey.withOpacity(0.3)),
-            const SizedBox(height: 12),
-            Text(message, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-          ],
         ),
       ),
     );
   }
-}
 
+  Widget _buildFilterPill(String title, int index, int selectedIndex, Color primaryColor) {
+    bool isSelected = index == selectedIndex;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedAccountIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+          border: isSelected ? null : Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6),
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeframeTab(String title, int index) {
+    bool isSelected = index == _selectedTimeframeIndex;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTimeframeIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF282D45) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.4),
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegendPair(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+
+}

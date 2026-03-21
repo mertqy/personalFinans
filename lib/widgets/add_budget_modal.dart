@@ -115,7 +115,7 @@ class _AddBudgetModalState extends ConsumerState<AddBudgetModal> {
 
               // Category Selection
               DropdownButtonFormField<String>(
-                value: _expenseCategories.any((cat) => cat['id'] == _selectedCategory) ? _selectedCategory : null,
+                initialValue: _expenseCategories.any((cat) => cat['id'] == _selectedCategory) ? _selectedCategory : null,
                 items: _expenseCategories.map((cat) {
                   return DropdownMenuItem<String>(
                     value: cat['id'] as String,
@@ -159,6 +159,7 @@ class _AddBudgetModalState extends ConsumerState<AddBudgetModal> {
                 inputFormatters: [ThousandsSeparatorInputFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'Limit Tutar',
+                  prefixText: '₺ ',
                   prefixIcon: Icon(Icons.account_balance_wallet_outlined),
                   border: OutlineInputBorder(),
                 ),

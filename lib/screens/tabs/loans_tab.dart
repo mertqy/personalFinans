@@ -69,13 +69,18 @@ class LoansTab extends ConsumerWidget {
   Widget _buildLoanCard(BuildContext context, WidgetRef ref, Loan loan) {
     final paidAmount = loan.totalAmount - loan.remainingAmount;
     final progress = paidAmount / (loan.totalAmount == 0 ? 1 : loan.totalAmount);
+    final accounts = ref.watch(accountProvider);
+    final account = accounts.any((a) => a.id == loan.accountId) 
+        ? accounts.firstWhere((a) => a.id == loan.accountId) 
+        : null;
+    final currency = account?.currency ?? 'TRY';
 
     return Card(
       elevation: loan.isCompleted ? 0 : 2,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: loan.isCompleted ? BorderSide(color: Colors.grey.withOpacity(0.2)) : BorderSide.none,
+        side: loan.isCompleted ? BorderSide(color: Colors.grey.withValues(alpha: 0.2)) : BorderSide.none,
       ),
       child: Opacity(
         opacity: loan.isCompleted ? 0.7 : 1.0,
@@ -91,8 +96,8 @@ class LoansTab extends ConsumerWidget {
                     children: [
                       CircleAvatar(
                         backgroundColor: loan.isCompleted 
-                            ? Colors.grey.withOpacity(0.2)
-                            : Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                            ? Colors.grey.withValues(alpha: 0.2)
+                            : Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                         child: Icon(
                           loan.isCompleted ? Icons.check_circle_outline : Icons.account_balance, 
                           color: loan.isCompleted ? Colors.grey : Theme.of(context).colorScheme.primary
@@ -110,7 +115,7 @@ class LoansTab extends ConsumerWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.15),
+                                    color: Colors.green.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text('BİTTİ', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
@@ -154,20 +159,35 @@ class LoansTab extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Kalan Borç', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      Text(AppUtils.formatCurrency(loan.remainingAmount), 
+                      Text(
+                        AppUtils.formatCurrency(
+                          AppUtils.convertToBaseCurrency(loan.remainingAmount, currency, 'TRY'),
+                          currency: 'TRY',
+                        ),
                         style: TextStyle(
                           fontWeight: FontWeight.bold, 
                           fontSize: 18, 
                           color: loan.isCompleted ? Colors.grey : Colors.orange
                         )
                       ),
+                      if (currency != 'TRY')
+                        Text(
+                          AppUtils.formatCurrency(loan.remainingAmount, currency: currency),
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
                     ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Ödenen: ${AppUtils.formatCurrency(paidAmount)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      Text('Toplam: ${AppUtils.formatCurrency(loan.totalAmount)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        'Ödenen: ${AppUtils.formatCurrency(AppUtils.convertToBaseCurrency(paidAmount, currency, 'TRY'), currency: 'TRY')}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        'Toplam: ${AppUtils.formatCurrency(AppUtils.convertToBaseCurrency(loan.totalAmount, currency, 'TRY'), currency: 'TRY')}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+                      ),
                     ],
                   ),
                 ],
@@ -175,7 +195,7 @@ class LoansTab extends ConsumerWidget {
               const SizedBox(height: 12),
               LinearProgressIndicator(
                 value: progress,
-                backgroundColor: Colors.grey.withOpacity(0.1),
+                backgroundColor: Colors.grey.withValues(alpha: 0.1),
                 valueColor: AlwaysStoppedAnimation<Color>(
                   loan.isCompleted ? Colors.green : Theme.of(context).colorScheme.primary
                 ),
@@ -188,7 +208,11 @@ class LoansTab extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: loan.isCompleted ? null : () => _showPaymentConfirmation(context, ref, loan),
-                      child: Text(loan.isCompleted ? 'Borç Kapandı' : 'Taksit Öde (${AppUtils.formatCurrency(loan.monthlyPayment)})'),
+                      child: Text(
+                        loan.isCompleted 
+                          ? 'Borç Kapandı' 
+                          : 'Taksit Öde (${AppUtils.formatCurrency(AppUtils.convertToBaseCurrency(loan.monthlyPayment, currency, 'TRY'), currency: 'TRY')})'
+                      ),
                     ),
                   ),
                   if (!loan.isCompleted) ...[
@@ -197,7 +221,7 @@ class LoansTab extends ConsumerWidget {
                       child: ElevatedButton(
                         onPressed: () => _showPayAllConfirmation(context, ref, loan),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange.withOpacity(0.1),
+                          backgroundColor: Colors.orange.withValues(alpha: 0.1),
                           foregroundColor: Colors.orange,
                           elevation: 0,
                           side: const BorderSide(color: Colors.orange, width: 0.5),

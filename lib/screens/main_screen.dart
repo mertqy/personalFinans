@@ -5,7 +5,6 @@ import 'dashboard_screen.dart';
 import 'statistics_screen.dart';
 import 'payments_screen.dart';
 import 'budget_screen.dart';
-import '../widgets/transaction_modal.dart';
 
 import '../providers/navigation_provider.dart';
 
@@ -19,37 +18,16 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen> {
   final PageController _pageController = PageController();
 
-  // Actual pages — NO placeholder for FAB
   final List<Widget> _pages = [
-    const DashboardScreen(),   // tab 0 → page 0
-    const BudgetScreen(),      // tab 1 → page 1
-    const PaymentsScreen(),    // tab 3 → page 2
-    const StatisticsScreen(),  // tab 4 → page 3
+    const DashboardScreen(),
+    const BudgetScreen(),
+    const PaymentsScreen(),
+    const StatisticsScreen(),
   ];
 
-  // Map tab index → page index (skipping tab 2 which is FAB)
-  int _tabToPage(int tabIndex) {
-    if (tabIndex < 2) return tabIndex;
-    return tabIndex - 1; // tab 3→page 2, tab 4→page 3
-  }
-
   void _onTabTapped(int index) {
-    if (index == 2) {
-      _showAddTransactionModal();
-      return;
-    }
-    
     ref.read(navigationProvider.notifier).state = index;
-    _pageController.jumpToPage(_tabToPage(index));
-  }
-
-  void _showAddTransactionModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const TransactionModal(),
-    );
+    _pageController.jumpToPage(index);
   }
 
   @override
@@ -58,8 +36,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     // Listen for navigation changes to update PageController
     ref.listen(navigationProvider, (previous, next) {
-      if (next != 2 && _pageController.hasClients) {
-        _pageController.jumpToPage(_tabToPage(next));
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(next);
       }
     });
 
@@ -69,21 +47,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         physics: const NeverScrollableScrollPhysics(),
         children: _pages,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddTransactionModal,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        shape: const CircleBorder(),
-        elevation: 4,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentTabIndex,
+        currentIndex: currentTabIndex > 3 ? 3 : currentTabIndex, // bounds check if returning from previous 5 tab layout
         onTap: _onTabTapped,
         type: BottomNavigationBarType.fixed,
         backgroundColor: Theme.of(context).colorScheme.surface,
         selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
         showSelectedLabels: true,
         showUnselectedLabels: true,
         selectedFontSize: 10,
@@ -98,10 +68,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             icon: Icon(Icons.pie_chart_outline),
             activeIcon: Icon(Icons.pie_chart),
             label: 'Bütçe',
-          ),
-          BottomNavigationBarItem(
-            icon: SizedBox(height: 20),
-            label: '',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.account_balance_wallet_outlined),

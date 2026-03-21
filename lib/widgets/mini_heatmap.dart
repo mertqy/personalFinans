@@ -3,9 +3,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/transaction_provider.dart';
-import '../providers/account_provider.dart';
+
 import '../core/constants.dart';
-import '../core/utils.dart';
 
 class MiniHeatmap extends ConsumerWidget {
   const MiniHeatmap({super.key});
@@ -13,45 +12,44 @@ class MiniHeatmap extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final transactions = ref.watch(transactionProvider);
-    final accounts = ref.watch(accountProvider);
-    final locationTransactions = transactions.where((tx) => tx.locationLat != null && tx.locationLng != null).toList();
+    final locationTransactions = transactions
+        .where((tx) => tx.locationLat != null && tx.locationLng != null)
+        .toList();
 
     if (locationTransactions.isEmpty) {
       return Container(
-        height: 200,
+        height: 180,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          color: const Color(0xFF141724), // matched dashboard list bg
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+              Icon(Icons.map_outlined, size: 40, color: Color(0xFF6B5BF2)),
               SizedBox(height: 12),
-              Text('Henüz konum verisi yok', style: TextStyle(color: Colors.grey)),
+              Text(
+                'Lokasyon verisi bulunamadı',
+                style: TextStyle(color: Colors.white54, fontSize: 13),
+              ),
             ],
           ),
         ),
       );
     }
 
-    // Harita merkezini son harcamaya göre ayarla
     final lastTx = locationTransactions.first;
     final center = LatLng(lastTx.locationLat!, lastTx.locationLng!);
 
     return Container(
-      height: 250,
+      height: 180,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
+        color: const Color(0xFF141724),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Stack(
         children: [
@@ -59,67 +57,63 @@ class MiniHeatmap extends ConsumerWidget {
             options: MapOptions(
               initialCenter: center,
               initialZoom: 13.0,
+              backgroundColor: const Color(0xFF141724), // Fallback map background
               interactionOptions: const InteractionOptions(
-                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
                 userAgentPackageName: 'com.mertqy.personalfinans',
               ),
               MarkerLayer(
                 markers: locationTransactions.map((tx) {
-                  // Kategori ikonunu bul
                   final category = AppConstants.defaultCategories.firstWhere(
                     (c) => c['id'] == tx.category,
-                    orElse: () => {'icon': '💰', 'color': Colors.blue},
+                    orElse: () => {'icon': '📍', 'color': Colors.blue},
                   );
-                  
-                  // Hesabı bulup para birimini al
-                  final account = accounts.any((a) => a.id == tx.accountId) 
-                    ? accounts.firstWhere((a) => a.id == tx.accountId) 
-                    : null;
-                  final currency = account?.currency ?? '₺';
-                  
+                  Color markerColor =
+                      category['color'] as Color? ?? const Color(0xFF6B5BF2);
+
                   return Marker(
                     point: LatLng(tx.locationLat!, tx.locationLng!),
-                    width: 60,
-                    height: 60,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                    width: 48,
+                    height: 48,
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
+                        // Soft outer pulse ring
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
+                            shape: BoxShape.circle,
+                            color: markerColor.withValues(alpha: 0.15),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 2),
+                              BoxShadow(
+                                color: markerColor.withValues(alpha: 0.2),
+                                blurRadius: 16,
+                                spreadRadius: 8,
+                              ),
                             ],
-                          ),
-                          constraints: const BoxConstraints(maxWidth: 55),
-                          child: Text(
-                            AppUtils.formatCurrency(tx.amount, currency: currency),
-                            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.black),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        // Inner solid dot
                         Container(
-                          width: 30,
-                          height: 30,
+                          width: 12,
+                          height: 12,
                           decoration: BoxDecoration(
-                            color: (category['color'] as Color).withOpacity(0.9),
+                            color: markerColor,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2)),
+                              BoxShadow(
+                                color: markerColor.withValues(alpha: 0.8),
+                                blurRadius: 8,
+                                spreadRadius: 2,
+                              ),
                             ],
-                          ),
-                          child: Center(
-                            child: Text(category['icon'] as String, style: const TextStyle(fontSize: 14)),
                           ),
                         ),
                       ],
@@ -131,24 +125,50 @@ class MiniHeatmap extends ConsumerWidget {
           ),
           Positioned(
             top: 16,
-            left: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.map, size: 16, color: Colors.blue),
-                  SizedBox(width: 6),
-                  Text(
-                    'Harcama Haritası',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
                   ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF00D287), // Green dot indicator
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'AKTİF BÖLGELER',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

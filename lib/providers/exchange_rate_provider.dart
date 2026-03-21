@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/exchange_rate.dart';
 import '../services/currency_service.dart';
 import '../services/storage_service.dart';
@@ -10,6 +11,18 @@ final exchangeRateProvider = StateNotifierProvider<ExchangeRateNotifier, List<Ex
 class ExchangeRateNotifier extends StateNotifier<List<ExchangeRate>> {
   ExchangeRateNotifier() : super([]) {
     _loadFromStorage();
+    _listenToNetwork();
+  }
+
+  void _listenToNetwork() {
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      if (results.contains(ConnectivityResult.mobile) || 
+          results.contains(ConnectivityResult.wifi) || 
+          results.contains(ConnectivityResult.ethernet)) {
+        // Ağ geldiğinde kurları tekrar güncelle
+        updateRates();
+      }
+    });
   }
 
   void _loadFromStorage() {
@@ -18,7 +31,7 @@ class ExchangeRateNotifier extends StateNotifier<List<ExchangeRate>> {
       state = storedRates;
     }
     
-    // Veriler boşsa veya 15 dakikadan eskiyse güncelle
+    // Veriler boşsa veya 15 dakikadan eskiyse ve çevrimiçiysek güncelle
     if (storedRates.isEmpty || 
         DateTime.now().difference(storedRates.first.lastUpdated).inMinutes >= 15) {
       updateRates();
@@ -27,17 +40,23 @@ class ExchangeRateNotifier extends StateNotifier<List<ExchangeRate>> {
 
   Future<void> updateRates() async {
     try {
+      final connectivityResults = await Connectivity().checkConnectivity();
+      if (connectivityResults.contains(ConnectivityResult.none)) {
+        // Çevrimdışı isek mevcut State'i (Son alınan veriyi) koruyarak çık
+        return;
+      }
+
       final newRatesMap = await CurrencyService.fetchRates();
       final List<ExchangeRate> newRatesList = newRatesMap.values.toList();
       
-      // Hive'a kaydet
+      // Hive'a kaydet (Ağ yokken okunmak üzere saklanacak)
       for (var rate in newRatesList) {
         StorageService.updateExchangeRate(rate);
       }
       
       state = newRatesList;
     } catch (e) {
-      // Hata sessizce geçiliyor veya ilerde bir logger'a bağlanabilir
+      // Hata alınırsa sessizce devam et, uygulama offline moda geçmiş gibi son kur bilgilerini kullanmaya devam eder.
     }
   }
 

@@ -51,8 +51,10 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
     final tx = widget.transaction;
     
     _type = tx?.type ?? widget.initialType ?? 'expense';
+    final accounts = ref.read(accountProvider);
+    final cards = ref.read(creditCardProvider);
     _amountController = TextEditingController(
-      text: tx != null ? ThousandsSeparatorInputFormatter.format(tx.amount) : '',
+      text: tx != null ? ThousandsSeparatorInputFormatter.format(AppUtils.getDisplayTRYAmount(tx, accounts, cards)) : '',
     );
     _descriptionController = TextEditingController(text: tx?.description);
     
@@ -112,19 +114,21 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
   String _getCurrencyCode() {
     if (_selectedCreditCardId != null) {
       final cardList = ref.read(creditCardProvider);
-      final card = cardList.firstWhere((c) => c.id == _selectedCreditCardId, orElse: () => cardList.first);
-      final accList = ref.read(accountProvider);
-      final acc = accList.firstWhere((a) => a.id == card.accountId, orElse: () => accList.first);
-      return acc.currency;
+      final cardMatches = cardList.where((c) => c.id == _selectedCreditCardId).toList();
+      if (cardMatches.isNotEmpty) {
+        final card = cardMatches.first;
+        final accList = ref.read(accountProvider).where((a) => a.id == card.accountId).toList();
+        if (accList.isNotEmpty) return accList.first.currency;
+      }
     } else if (_selectedAccountId != null) {
-      final accList = ref.read(accountProvider);
-      final acc = accList.firstWhere((a) => a.id == _selectedAccountId, orElse: () => accList.first);
-      return acc.currency;
+      final accList = ref.read(accountProvider).where((a) => a.id == _selectedAccountId).toList();
+      if (accList.isNotEmpty) return accList.first.currency;
     }
     return 'TRY';
   }
 
   String _getCurrencySymbol() {
+    if (_type != 'transfer') return '₺';
     final code = _getCurrencyCode();
     final Map<String, String> currencySymbols = {
       'TRY': '₺',
@@ -200,7 +204,15 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         return;
       }
 
-      final amount = ThousandsSeparatorInputFormatter.parse(_amountController.text);
+      final amountFromController = ThousandsSeparatorInputFormatter.parse(_amountController.text);
+      final accountCurrency = _getCurrencyCode();
+      
+      // Calculate final amount for the database (in account currency)
+      // Income/Expense are entered in TRY, Transfers are entered in account currency
+      final amount = _type == 'transfer' 
+          ? amountFromController 
+          : AppUtils.convertToBaseCurrency(amountFromController, 'TRY', accountCurrency);
+          
       final categoryName = AppUtils.getCategoryName(_selectedCategory ?? 'Transfer');
 
       // Bakiye Kontrolü (Normal hesaplar eksiye düşmemeli)
@@ -220,6 +232,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         }
 
         if (amount > currentBalance) {
+          final String balanceSymbol = AppUtils.getCurrencySymbol(account.currency);
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -230,7 +243,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                   Text('Yetersiz Bakiye'),
                 ],
               ),
-              content: Text('Bu işlem için seçili hesapta yeterli bakiye bulunmuyor.\n\nEn fazla harcayabileceğiniz tutar: ${ThousandsSeparatorInputFormatter.format(currentBalance)} ${_getCurrencySymbol()}'),
+              content: Text('Bu işlem için seçili hesapta yeterli bakiye bulunmuyor.\n\nEn fazla harcayabileceğiniz tutar: ${ThousandsSeparatorInputFormatter.format(currentBalance)} $balanceSymbol'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
@@ -298,7 +311,6 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
       }
 
       final completedGoalId = toGoalId;
-      final parentContext = Navigator.of(context).context;
       Navigator.pop(context);
 
       // Check for goal completion after a delay to allow provider to update
@@ -308,7 +320,9 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
           final updatedGoals = ref.read(goalProvider);
           final updatedGoal = updatedGoals.where((g) => g.id == completedGoalId).firstOrNull;
           if (updatedGoal != null && updatedGoal.isCompleted) {
-            GoalSuccessDialog.show(parentContext, updatedGoal);
+            if (context.mounted) {
+              GoalSuccessDialog.show(context, updatedGoal);
+            }
           }
         });
       }
@@ -395,8 +409,30 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                 ],
                 selected: {_type},
                 onSelectionChanged: (Set<String> newSelection) {
+                  final oldType = _type;
+                  final newType = newSelection.first;
+                  if (oldType == newType) return;
+
                   setState(() {
-                    _type = newSelection.first;
+                    // Convert amount between TRY and Account Currency if switching to/from transfer
+                    final currentAmountStr = _amountController.text;
+                    if (currentAmountStr.isNotEmpty) {
+                      final currentAmount = ThousandsSeparatorInputFormatter.parse(currentAmountStr);
+                      if (currentAmount > 0) {
+                        final accountCurrency = _getCurrencyCode();
+                        if (oldType == 'transfer') {
+                          // From Account Currency (e.g. USD) to TRY
+                          final converted = AppUtils.convertToBaseCurrency(currentAmount, accountCurrency, 'TRY');
+                          _amountController.text = ThousandsSeparatorInputFormatter.format(converted);
+                        } else if (newType == 'transfer') {
+                          // From TRY to Account Currency (e.g. USD)
+                          final converted = AppUtils.convertToBaseCurrency(currentAmount, 'TRY', accountCurrency);
+                          _amountController.text = ThousandsSeparatorInputFormatter.format(converted);
+                        }
+                      }
+                    }
+                    
+                    _type = newType;
                     _updateDefaultCategory();
                     if (_type == 'income') {
                       _selectedCreditCardId = null;
@@ -436,7 +472,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
 
               if (_type != 'transfer') ...[
                 DropdownButtonFormField<String>(
-                  value: filteredCategories.any((cat) => cat['id'] == _selectedCategory) ? _selectedCategory : null,
+                  initialValue: filteredCategories.any((cat) => cat['id'] == _selectedCategory) ? _selectedCategory : null,
                   items: filteredCategories.map((cat) {
                     return DropdownMenuItem<String>(
                       value: cat['id'] as String,
@@ -485,7 +521,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
               Text(_type == 'transfer' ? 'Nereden?' : 'Ödeme Yöntemi', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedMethodId,
+                initialValue: _selectedMethodId,
                 items: <DropdownMenuItem<String>>[
                   if ((_type == 'expense' || _type == 'transfer') && cards.isNotEmpty) ...[
                     const DropdownMenuItem<String>(
@@ -521,7 +557,9 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                     
                     final newCurrency = _getCurrencyCode();
                     
-                    if (oldCurrency != newCurrency) {
+                    // Only convert amount in field if we are in transfer mode (input is in account currency)
+                    // If in expense/income mode, input is always in TL, so no conversion on account change
+                    if (_type == 'transfer' && oldCurrency != newCurrency) {
                       final currentAmount = ThousandsSeparatorInputFormatter.parse(_amountController.text);
                       if (currentAmount > 0) {
                         final convertedAmount = AppUtils.convertToBaseCurrency(currentAmount, oldCurrency, newCurrency);
@@ -540,7 +578,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                 Text('Nereye?', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedToId,
+                  initialValue: _selectedToId,
                   items: <DropdownMenuItem<String>>[
                     if (accounts.isNotEmpty) ...[
                       const DropdownMenuItem<String>(
@@ -579,7 +617,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
               ),
               if (_isRecurring)
                 DropdownButtonFormField<String>(
-                  value: _recurringFrequency,
+                  initialValue: _recurringFrequency,
                   items: _recurringOptions.map((opt) {
                      String text = '';
                      switch(opt){
@@ -614,7 +652,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
               // Konum Ekleme Bölümü
               Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
