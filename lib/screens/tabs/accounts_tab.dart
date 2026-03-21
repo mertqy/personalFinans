@@ -60,7 +60,7 @@ class AccountsTab extends ConsumerWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Color(int.parse((acc.color ?? '#64B5F6').replaceFirst('#', 'ff'), radix: 16)).withValues(alpha: 0.5), width: 1),
+                  side: BorderSide(color: Color(int.parse((acc.color ?? '#64B5F6').replaceFirst('#', 'ff'), radix: 16)).withOpacity(0.5), width: 1),
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
@@ -77,7 +77,7 @@ class AccountsTab extends ConsumerWidget {
                     child: Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: Color(int.parse((acc.color ?? '#64B5F6').replaceFirst('#', 'ff'), radix: 16)).withValues(alpha: 0.2),
+                          backgroundColor: Color(int.parse((acc.color ?? '#64B5F6').replaceFirst('#', 'ff'), radix: 16)).withOpacity(0.2),
                           child: Icon(Icons.account_balance, color: Color(int.parse((acc.color ?? '#64B5F6').replaceFirst('#', 'ff'), radix: 16))),
                         ),
                         const SizedBox(width: 16),

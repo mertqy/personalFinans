@@ -20,7 +20,7 @@ class MiniHeatmap extends ConsumerWidget {
       return Container(
         height: 200,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
           borderRadius: BorderRadius.circular(24),
         ),
         child: const Center(
@@ -47,7 +47,7 @@ class MiniHeatmap extends ConsumerWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -87,19 +87,23 @@ class MiniHeatmap extends ConsumerWidget {
                     width: 60,
                     height: 60,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4),
+                              BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 2),
                             ],
                           ),
+                          constraints: const BoxConstraints(maxWidth: 55),
                           child: Text(
                             AppUtils.formatCurrency(tx.amount, currency: currency),
-                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black),
+                            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.black),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -107,11 +111,11 @@ class MiniHeatmap extends ConsumerWidget {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: (category['color'] as Color).withValues(alpha: 0.9),
+                            color: (category['color'] as Color).withOpacity(0.9),
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
+                              BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2)),
                             ],
                           ),
                           child: Center(
@@ -131,9 +135,9 @@ class MiniHeatmap extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.1)),
+                border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,

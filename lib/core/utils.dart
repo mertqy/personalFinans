@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:hive/hive.dart';
@@ -9,6 +10,18 @@ class AppUtils {
 
   static String generateId() {
     return _uuid.v4();
+  }
+
+  static String colorToHex(Color color) {
+    return '#${color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+  }
+
+  static Color hexToColor(String hex) {
+    try {
+      return Color(int.parse(hex.replaceFirst('#', '0xFF')));
+    } catch (_) {
+      return Colors.blue;
+    }
   }
 
   static String formatCurrency(double amount, {String currency = 'TRY'}) {
@@ -29,6 +42,17 @@ class AppUtils {
     );
     
     return formatter.format(amount);
+  }
+  
+  static String getCurrencySymbol(String currency) {
+    final Map<String, String> currencySymbols = {
+      'TRY': '₺',
+      'USD': '\$',
+      'EUR': '€',
+      'GBP': '£',
+      'GOLD': 'gr',
+    };
+    return currencySymbols[currency] ?? '₺';
   }
 
   static String formatDate(DateTime date, {bool short = false}) {
@@ -88,6 +112,30 @@ class AppUtils {
   }
 
   static String getCategoryIcon(String categoryId) {
+    // Özel sistem kategorileri kontrolü
+    switch (categoryId.toLowerCase()) {
+      case 'transfer':
+      case 'transfer işlemi':
+        return '🔄';
+      case 'borç ödemesi':
+      case 'taksit ödemesi':
+        return '💳';
+      case 'borç kapatma':
+      case 'kredi kapama':
+        return '💸';
+      case 'birikim':
+      case 'birikim aktarma':
+      case 'hedef':
+        return '🎯';
+      case 'kredi':
+      case 'kredi girişi':
+      case 'banka kredisi':
+        return '🏦';
+      case 'açılış bakiyesi':
+      case 'başlangıç bakiyesi':
+        return '📈';
+    }
+
     final cat = getCategoryById(categoryId);
     return cat != null ? cat['icon'] as String : '❓';
   }

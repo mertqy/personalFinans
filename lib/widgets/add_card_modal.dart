@@ -20,6 +20,18 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
   late final TextEditingController _nameController;
   late final TextEditingController _limitController;
   String? _selectedAccountId;
+  late Color _selectedColor;
+
+  static const List<Color> _cardColors = [
+    Color(0xFF1E88E5), // Blue
+    Color(0xFF43A047), // Green
+    Color(0xFFE53935), // Red
+    Color(0xFFFB8C00), // Orange
+    Color(0xFF00ACC1), // Cyan
+    Color(0xFF757575), // Grey
+    Color(0xFF5D4037), // Brown
+    Color(0xFF3949AB), // Indigo
+  ];
 
   @override
   void initState() {
@@ -29,6 +41,9 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
       text: widget.card != null ? ThousandsSeparatorInputFormatter.format(widget.card!.limit) : '',
     );
     _selectedAccountId = widget.card?.accountId;
+    _selectedColor = widget.card != null 
+        ? AppUtils.hexToColor(widget.card!.color) 
+        : _cardColors[0];
   }
 
   @override
@@ -55,6 +70,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
         updatedCard.bank = selectedAccount.name;
         updatedCard.accountId = _selectedAccountId!;
         updatedCard.limit = limit;
+        updatedCard.color = AppUtils.colorToHex(_selectedColor);
         updatedCard.updatedAt = DateTime.now();
         
         ref.read(creditCardProvider.notifier).updateCard(updatedCard);
@@ -70,7 +86,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
           currentDebt: 0.0,
           statementDay: 1,
           dueDay: 10,
-          color: '#E57373',
+          color: AppUtils.colorToHex(_selectedColor),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
@@ -97,10 +113,11 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
       ),
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -158,6 +175,46 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
               },
             ),
             const SizedBox(height: 24),
+            Text('Kart Rengi', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 50,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _cardColors.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final color = _cardColors[index];
+                  final isSelected = _selectedColor.value == color.value;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedColor = color),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: isSelected 
+                            ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 3)
+                            : null,
+                        boxShadow: [
+                          if (isSelected)
+                            BoxShadow(
+                              color: color.withOpacity(0.4),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            ),
+                        ],
+                      ),
+                      child: isSelected 
+                          ? const Icon(Icons.check, color: Colors.white, size: 24)
+                          : null,
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -174,6 +231,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

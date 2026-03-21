@@ -121,9 +121,9 @@ class NotificationsScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF6C5CE7).withValues(alpha: 0.3)),
+                        border: Border.all(color: const Color(0xFF6C5CE7).withOpacity(0.3)),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
                         ],
                       ),
                       child: ListTile(
@@ -131,7 +131,7 @@ class NotificationsScreen extends ConsumerWidget {
                         leading: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6C5CE7).withValues(alpha: 0.1),
+                            color: const Color(0xFF6C5CE7).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(sub.icon, style: const TextStyle(fontSize: 22)),
@@ -187,7 +187,7 @@ class NotificationsScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.withValues(alpha: 0.3)),
+          Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
           const SizedBox(height: 16),
           const Text('Henüz bir bildirim yok.', style: TextStyle(color: Colors.grey)),
         ],
@@ -220,11 +220,11 @@ class NotificationsScreen extends ConsumerWidget {
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isOver ? Colors.red.withValues(alpha: 0.3) : Colors.orange.withValues(alpha: 0.3),
+          color: isOver ? Colors.red.withOpacity(0.3) : Colors.orange.withOpacity(0.3),
           width: 1,
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Padding(
@@ -237,7 +237,7 @@ class NotificationsScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: (isOver ? Colors.red : Colors.orange).withValues(alpha: 0.1),
+                    color: (isOver ? Colors.red : Colors.orange).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(AppUtils.getCategoryIcon(categoryId), style: const TextStyle(fontSize: 20)),
@@ -270,7 +270,7 @@ class NotificationsScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             LinearProgressIndicator(
               value: progress > 1.0 ? 1.0 : progress,
-              backgroundColor: Colors.grey.withValues(alpha: 0.2),
+              backgroundColor: Colors.grey.withOpacity(0.2),
               valueColor: AlwaysStoppedAnimation<Color>(isOver ? Colors.red : Colors.orange),
               minHeight: 6,
               borderRadius: BorderRadius.circular(3),
@@ -308,9 +308,9 @@ class NotificationsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: ListTile(
@@ -318,7 +318,7 @@ class NotificationsScreen extends ConsumerWidget {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
+            color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: color),
@@ -345,9 +345,9 @@ class NotificationsScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: isLate ? Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1) : null,
+        border: isLate ? Border.all(color: Colors.red.withOpacity(0.3), width: 1) : null,
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: ListTile(
@@ -355,7 +355,7 @@ class NotificationsScreen extends ConsumerWidget {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: (isIncome ? Colors.green : Colors.red).withValues(alpha: 0.1),
+            color: (isIncome ? Colors.green : Colors.red).withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(

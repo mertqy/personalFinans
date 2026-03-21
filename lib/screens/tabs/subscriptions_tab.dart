@@ -41,7 +41,7 @@ class SubscriptionsTab extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6C5CE7).withValues(alpha: 0.3),
+                        color: const Color(0xFF6C5CE7).withOpacity(0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
                       ),
@@ -100,7 +100,7 @@ class SubscriptionsTab extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.subscriptions_outlined, size: 64, color: Colors.grey.withValues(alpha: 0.3)),
+          Icon(Icons.subscriptions_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
           const SizedBox(height: 16),
           const Text('Henüz abonelik eklemediniz.', style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 12),
@@ -133,7 +133,7 @@ class SubscriptionsTab extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border(left: BorderSide(color: inactive ? Colors.grey : color, width: 4)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Padding(
@@ -144,7 +144,7 @@ class SubscriptionsTab extends ConsumerWidget {
             Container(
               width: 48, height: 48,
               decoration: BoxDecoration(
-                color: (inactive ? Colors.grey : color).withValues(alpha: 0.1),
+                color: (inactive ? Colors.grey : color).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(child: Text(sub.icon, style: const TextStyle(fontSize: 24))),

@@ -170,8 +170,10 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
 
   void processRecurring() {
     final now = DateTime.now();
-    final transactions = StorageService.getTransactions();
+    bool hasNew = false;
     
+    // 1. İşlem bazlı tekrarlananlar (Transaction Templates)
+    final transactions = StorageService.getTransactions();
     final recurringMap = <String, Transaction>{};
     for (var tx in transactions) {
       if (tx.isRecurring == true && tx.isPlanned == false && tx.recurringFrequency != null) {
@@ -182,11 +184,10 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
       }
     }
 
-    bool hasNew = false;
     recurringMap.forEach((key, lastTx) {
-      DateTime nextOccurrence = _calculateNextDate(lastTx.date, lastTx.recurringFrequency!);
+      DateTime nextOccur = _calculateNextDate(lastTx.date, lastTx.recurringFrequency!);
       
-      while (nextOccurrence.isBefore(now) || _isSameDay(nextOccurrence, now)) {
+      while (nextOccur.isBefore(now) || _isSameDay(nextOccur, now)) {
         final newTx = Transaction(
           id: AppUtils.generateId(),
           userId: lastTx.userId,
@@ -194,7 +195,7 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
           amount: lastTx.amount,
           category: lastTx.category,
           description: lastTx.description,
-          date: nextOccurrence,
+          date: nextOccur,
           isPlanned: false,
           isRecurring: true,
           recurringFrequency: lastTx.recurringFrequency,
@@ -210,18 +211,85 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
           StorageService.addTransaction(newTx);
           _applyEffect(newTx);
           hasNew = true;
+          // Templateler için en son işleme göre bir sonrakini hesapla
+          nextOccur = _calculateNextDate(nextOccur, lastTx.recurringFrequency!);
         } else {
-          // Skip if no funds
-          break; 
+          break; // Yetersiz bakiye durumunda silsileyi durdur
         }
-
-        nextOccurrence = _calculateNextDate(nextOccurrence, lastTx.recurringFrequency!);
-        if (nextOccurrence.isAfter(now.add(const Duration(days: 365)))) break;
+        if (nextOccur.isAfter(now.add(const Duration(days: 365)))) break;
       }
     });
 
+    // 2. Abonelik bazlı tekrarlananlar (Subscription Entities)
+    final subscriptions = StorageService.getSubscriptions();
+    for (var sub in subscriptions) {
+      if (!sub.isActive) continue;
+
+      DateTime checkDate;
+      if (sub.lastProcessedAt == null) {
+        // İlk işlem: Oluşturulma tarihindeki ayın billingDay'ini kontrol et
+        checkDate = DateTime(sub.createdAt.year, sub.createdAt.month, sub.billingDay);
+        // Eğer billingDay oluşturulma gününden önceyse, o ayı atla (abonelik yeni başladı)
+        if (checkDate.isBefore(sub.createdAt) && !_isSameDay(checkDate, sub.createdAt)) {
+          checkDate = _calculateNextSubscriptionDate(checkDate, sub.billingDay, sub.frequency);
+        }
+      } else {
+        checkDate = _calculateNextSubscriptionDate(sub.lastProcessedAt!, sub.billingDay, sub.frequency);
+      }
+
+      while (checkDate.isBefore(now) || _isSameDay(checkDate, now)) {
+        final newTx = Transaction(
+          id: AppUtils.generateId(),
+          userId: sub.userId,
+          type: 'expense',
+          amount: sub.amount,
+          category: sub.category,
+          description: sub.name,
+          date: checkDate,
+          accountId: sub.accountId,
+          isPlanned: false,
+          isRecurring: true,
+          recurringFrequency: sub.frequency,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        if (_canApply(newTx)) {
+          StorageService.addTransaction(newTx);
+          _applyEffect(newTx);
+          sub.lastProcessedAt = checkDate;
+          sub.save();
+          hasNew = true;
+          checkDate = _calculateNextSubscriptionDate(checkDate, sub.billingDay, sub.frequency);
+        } else {
+          break; // Bakiye yetersizse dur
+        }
+        if (checkDate.isAfter(now.add(const Duration(days: 365)))) break;
+      }
+    }
+
     if (hasNew) {
       loadTransactions();
+    }
+  }
+
+  DateTime _calculateNextSubscriptionDate(DateTime lastDate, int billingDay, String frequency) {
+    if (frequency == 'yearly') {
+      return DateTime(lastDate.year + 1, lastDate.month, billingDay);
+    } else {
+      // Aylık: Bir sonraki ayı bul
+      int nextMonth = lastDate.month + 1;
+      int nextYear = lastDate.year;
+      if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear++;
+      }
+      
+      // Ayın günü validasyonu (örn: 31 çekmeyen aylar)
+      int lastDayOfMonth = DateTime(nextYear, nextMonth + 1, 0).day;
+      int day = billingDay > lastDayOfMonth ? lastDayOfMonth : billingDay;
+      
+      return DateTime(nextYear, nextMonth, day);
     }
   }
 
@@ -232,7 +300,14 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
       case 'weekly':
         return date.add(const Duration(days: 7));
       case 'monthly':
-        return DateTime(date.year, date.month + 1, date.day);
+        int nextMonth = date.month + 1;
+        int nextYear = date.year;
+        if (nextMonth > 12) {
+          nextMonth = 1;
+          nextYear++;
+        }
+        int lastDay = DateTime(nextYear, nextMonth + 1, 0).day;
+        return DateTime(nextYear, nextMonth, date.day > lastDay ? lastDay : date.day);
       case 'yearly':
         return DateTime(date.year + 1, date.month, date.day);
       default:

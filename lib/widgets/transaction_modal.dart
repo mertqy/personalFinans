@@ -9,6 +9,7 @@ import '../models/transaction.dart';
 import '../core/constants.dart';
 import '../core/utils.dart';
 import '../core/formatters.dart';
+import 'goal_success_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../screens/location_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
@@ -257,7 +258,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         final tx = widget.transaction!;
         tx.type = _type;
         tx.amount = amount;
-        tx.category = _selectedCategory ?? 'Transfer';
+        tx.category = _selectedCategory ?? (_type == 'transfer' ? (toGoalId != null ? 'Birikim Aktarma' : 'Transfer') : 'Diğer');
         tx.description = _descriptionController.text.isEmpty ? (_type == 'transfer' ? 'Transfer' : categoryName) : _descriptionController.text;
         tx.date = _selectedDate;
         tx.isRecurring = _isRecurring;
@@ -277,7 +278,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
           userId: 'temp_user_id',
           type: _type,
           amount: amount,
-          category: _selectedCategory ?? 'Transfer',
+          category: _selectedCategory ?? (_type == 'transfer' ? (toGoalId != null ? 'Birikim Aktarma' : 'Transfer') : 'Diğer'),
           description: _descriptionController.text.isEmpty ? (_type == 'transfer' ? 'Transfer' : categoryName) : _descriptionController.text,
           date: _selectedDate,
           isPlanned: false,
@@ -296,7 +297,21 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         ref.read(transactionProvider.notifier).addTransaction(transaction);
       }
 
+      final completedGoalId = toGoalId;
+      final parentContext = Navigator.of(context).context;
       Navigator.pop(context);
+
+      // Check for goal completion after a delay to allow provider to update
+      if (completedGoalId != null) {
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (!mounted) return;
+          final updatedGoals = ref.read(goalProvider);
+          final updatedGoal = updatedGoals.where((g) => g.id == completedGoalId).firstOrNull;
+          if (updatedGoal != null && updatedGoal.isCompleted) {
+            GoalSuccessDialog.show(parentContext, updatedGoal);
+          }
+        });
+      }
     }
   }
 
@@ -599,7 +614,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
               // Konum Ekleme Bölümü
               Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(

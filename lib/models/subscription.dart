@@ -43,6 +43,9 @@ class Subscription extends HiveObject {
   @HiveField(12)
   DateTime updatedAt;
 
+  @HiveField(13)
+  DateTime? lastProcessedAt;
+
   Subscription({
     required this.id,
     required this.userId,
@@ -57,5 +60,6 @@ class Subscription extends HiveObject {
     required this.color,
     required this.createdAt,
     required this.updatedAt,
+    this.lastProcessedAt,
   });
 }

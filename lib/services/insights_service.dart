@@ -72,22 +72,118 @@ class InsightsService {
   static double calculateEndOfMonthForecast({
     required double currentBalance,
     required List<Transaction> transactions,
+    required List<dynamic> subscriptions, 
   }) {
     final now = DateTime.now();
     final endOfMonth = DateTime(now.year, now.month + 1, 0); // Ayın son günü
 
-    // Kalan planlanan gelirler (bugünden ay sonuna kadar)
-    final remainingPlannedIncome = transactions
-        .where((t) => t.isPlanned && t.type == 'income' &&
-            t.date.isAfter(now) && !t.date.isAfter(endOfMonth))
-        .fold(0.0, (sum, t) => sum + t.amount);
+    double forecast = currentBalance;
 
-    // Kalan planlanan giderler (bugünden ay sonuna kadar)
-    final remainingPlannedExpense = transactions
-        .where((t) => t.isPlanned && t.type == 'expense' &&
-            t.date.isAfter(now) && !t.date.isAfter(endOfMonth))
-        .fold(0.0, (sum, t) => sum + t.amount);
+    // 1. Kalan planlanan tekil işlemler (isPlanned = true but date is in future)
+    final remainingPlanned = transactions.where((t) => 
+        t.isPlanned && 
+        t.date.isAfter(now) && 
+        !t.date.isAfter(endOfMonth));
 
-    return currentBalance + remainingPlannedIncome - remainingPlannedExpense;
+    for (final tx in remainingPlanned) {
+      if (tx.type == 'income') {
+        forecast += tx.amount;
+      } else if (tx.type == 'expense') {
+        forecast -= tx.amount;
+      } else if (tx.type == 'transfer' && tx.toGoalId != null) {
+        // Hedefe transfer de bakiyeden düşer
+        forecast -= tx.amount;
+      }
+    }
+
+    // 2. Tekrarlanan İşlemler (Templates)
+    // En son gerçekleşen non-planned recurring tx'leri bulup bir sonrakileri hesapla
+    final recurringTemplates = <String, Transaction>{};
+    for (var tx in transactions) {
+      if (tx.isRecurring == true && !tx.isPlanned && tx.recurringFrequency != null) {
+        final key = '${tx.category}_${tx.description}_${tx.accountId}';
+        if (!recurringTemplates.containsKey(key) || tx.date.isAfter(recurringTemplates[key]!.date)) {
+          recurringTemplates[key] = tx;
+        }
+      }
+    }
+
+    recurringTemplates.forEach((key, lastTx) {
+      DateTime nextOccur = _calculateNextDate(lastTx.date, lastTx.recurringFrequency!);
+      while (!nextOccur.isAfter(endOfMonth)) {
+        if (nextOccur.isAfter(now)) {
+          if (lastTx.type == 'income') {
+            forecast += lastTx.amount;
+          } else if (lastTx.type == 'expense') {
+            forecast -= lastTx.amount;
+          } else if (lastTx.type == 'transfer' && lastTx.toGoalId != null) {
+            forecast -= lastTx.amount;
+          }
+        }
+        nextOccur = _calculateNextDate(nextOccur, lastTx.recurringFrequency!);
+      }
+    });
+
+    // 3. Abonelikler
+    for (var sub in subscriptions) {
+      if (!sub.isActive) continue;
+      
+      DateTime nextOccur;
+      if (sub.lastProcessedAt == null) {
+        nextOccur = DateTime(sub.createdAt.year, sub.createdAt.month, sub.billingDay);
+        if (nextOccur.isBefore(sub.createdAt)) {
+          nextOccur = _calculateNextSubscriptionDate(nextOccur, sub.billingDay, sub.frequency);
+        }
+      } else {
+        nextOccur = _calculateNextSubscriptionDate(sub.lastProcessedAt!, sub.billingDay, sub.frequency);
+      }
+
+      while (!nextOccur.isAfter(endOfMonth)) {
+        if (nextOccur.isAfter(now)) {
+          forecast -= sub.amount;
+        }
+        nextOccur = _calculateNextSubscriptionDate(nextOccur, sub.billingDay, sub.frequency);
+      }
+    }
+
+    return forecast;
+  }
+
+  static DateTime _calculateNextDate(DateTime date, String frequency) {
+    switch (frequency) {
+      case 'daily':
+        return date.add(const Duration(days: 1));
+      case 'weekly':
+        return date.add(const Duration(days: 7));
+      case 'monthly':
+        int nextMonth = date.month + 1;
+        int nextYear = date.year;
+        if (nextMonth > 12) {
+          nextMonth = 1;
+          nextYear++;
+        }
+        int lastDay = DateTime(nextYear, nextMonth + 1, 0).day;
+        return DateTime(nextYear, nextMonth, date.day > lastDay ? lastDay : date.day);
+      case 'yearly':
+        return DateTime(date.year + 1, date.month, date.day);
+      default:
+        return date.add(const Duration(days: 30));
+    }
+  }
+
+  static DateTime _calculateNextSubscriptionDate(DateTime lastDate, int billingDay, String frequency) {
+    if (frequency == 'yearly') {
+      return DateTime(lastDate.year + 1, lastDate.month, billingDay);
+    } else {
+      int nextMonth = lastDate.month + 1;
+      int nextYear = lastDate.year;
+      if (nextMonth > 12) {
+        nextMonth = 1;
+        nextYear++;
+      }
+      int lastDayOfMonth = DateTime(nextYear, nextMonth + 1, 0).day;
+      int day = billingDay > lastDayOfMonth ? lastDayOfMonth : billingDay;
+      return DateTime(nextYear, nextMonth, day);
+    }
   }
 }

@@ -94,7 +94,7 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                   child: Container(
                     width: 40, height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.3),
+                      color: Colors.grey.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -124,8 +124,8 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
-                                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                                : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                             borderRadius: BorderRadius.circular(12),
                             border: isSelected
                                 ? Border.all(color: Theme.of(context).colorScheme.primary)
@@ -154,20 +154,28 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                 ),
                 const SizedBox(height: 12),
 
-                // Tutar
-                TextFormField(
-                  controller: _amountController,
-                  decoration: const InputDecoration(labelText: 'Aylık Tutar (₺)', border: OutlineInputBorder()),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    ThousandsSeparatorInputFormatter(),
-                  ],
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Gerekli';
-                    if (ThousandsSeparatorInputFormatter.parse(v) <= 0) return 'Geçerli bir tutar girin';
-                    return null;
-                  },
+                Builder(
+                  builder: (context) {
+                    final selectedAccount = accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
+                    final currency = selectedAccount?.currency ?? '₺';
+                    return TextFormField(
+                      controller: _amountController,
+                      decoration: InputDecoration(
+                        labelText: 'Aylık Tutar (${AppUtils.getCurrencySymbol(currency)})', 
+                        border: const OutlineInputBorder()
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        ThousandsSeparatorInputFormatter(),
+                      ],
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Gerekli';
+                        if (ThousandsSeparatorInputFormatter.parse(v) <= 0) return 'Geçerli bir tutar girin';
+                        return null;
+                      },
+                    );
+                  }
                 ),
                 const SizedBox(height: 12),
 
@@ -223,7 +231,7 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                           color: Color(int.parse(c.replaceFirst('#', 'ff'), radix: 16)),
                           borderRadius: BorderRadius.circular(8),
                           border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
-                          boxShadow: isSelected ? [BoxShadow(color: Color(int.parse(c.replaceFirst('#', 'ff'), radix: 16)).withValues(alpha: 0.5), blurRadius: 8)] : null,
+                          boxShadow: isSelected ? [BoxShadow(color: Color(int.parse(c.replaceFirst('#', 'ff'), radix: 16)).withOpacity(0.5), blurRadius: 8)] : null,
                         ),
                       ),
                     );

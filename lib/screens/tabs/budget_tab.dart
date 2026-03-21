@@ -116,7 +116,7 @@ class BudgetTab extends ConsumerWidget {
                       const SizedBox(height: 16),
                       LinearProgressIndicator(
                         value: progress > 1.0 ? 1.0 : progress,
-                        backgroundColor: Colors.grey.withValues(alpha: 0.2),
+                        backgroundColor: Colors.grey.withOpacity(0.2),
                         valueColor: AlwaysStoppedAnimation<Color>(isOverBudget ? Colors.red : Theme.of(context).colorScheme.primary),
                         minHeight: 8,
                         borderRadius: BorderRadius.circular(4),

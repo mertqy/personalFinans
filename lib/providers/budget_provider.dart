@@ -65,7 +65,7 @@ class GoalNotifier extends StateNotifier<List<Goal>> {
     if (goal != null) {
       goal.currentAmount += amount;
       if (goal.currentAmount < 0) goal.currentAmount = 0;
-      if (goal.currentAmount >= goal.targetAmount) goal.isCompleted = true;
+      goal.isCompleted = goal.currentAmount >= goal.targetAmount;
       goal.updatedAt = DateTime.now();
       BudgetStorageService.updateGoal(goal);
       loadGoals();

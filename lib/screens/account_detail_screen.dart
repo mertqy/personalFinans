@@ -37,7 +37,7 @@ class AccountDetailScreen extends ConsumerWidget {
                   gradient: LinearGradient(
                     colors: [
                       Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                      Theme.of(context).colorScheme.primary.withOpacity(0.6),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -82,7 +82,7 @@ class AccountDetailScreen extends ConsumerWidget {
                       final isIncome = tx.type == 'income';
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: isIncome ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+                          backgroundColor: isIncome ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
                           child: Icon(
                             isIncome ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
                             color: isIncome ? Colors.green : Colors.red,

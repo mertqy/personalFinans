@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/credit_card_provider.dart';
+import '../../providers/account_provider.dart';
 import '../../core/utils.dart';
 import '../../widgets/add_card_modal.dart';
 
@@ -10,6 +11,7 @@ class CardsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cards = ref.watch(creditCardProvider);
+    final accounts = ref.watch(accountProvider);
 
     return cards.isEmpty
         ? Center(
@@ -30,9 +32,10 @@ class CardsTab extends ConsumerWidget {
               ],
             ),
           )
-        : ListView.builder(
+        : ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: cards.length + 1,
+            separatorBuilder: (context, index) => const SizedBox(height: 0), // No separator needed between cards
             itemBuilder: (context, index) {
               if (index == cards.length) {
                 return Padding(
@@ -53,6 +56,11 @@ class CardsTab extends ConsumerWidget {
 
               final card = cards[index];
               final availableLimit = card.limit - card.currentDebt;
+              final account = accounts.any((a) => a.id == card.accountId) 
+                  ? accounts.firstWhere((a) => a.id == card.accountId) 
+                  : null;
+              final bankName = account != null ? account.name : card.bank;
+              final currency = account?.currency ?? '₺';
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -60,8 +68,8 @@ class CardsTab extends ConsumerWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Color(int.parse(card.color.replaceFirst('#', 'ff'), radix: 16)),
-                      Color(int.parse(card.color.replaceFirst('#', 'ff'), radix: 16)).withValues(alpha: 0.7),
+                      AppUtils.hexToColor(card.color),
+                      AppUtils.hexToColor(card.color).withOpacity(0.7),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -69,7 +77,7 @@ class CardsTab extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(int.parse(card.color.replaceFirst('#', 'ff'), radix: 16)).withValues(alpha: 0.4),
+                      color: AppUtils.hexToColor(card.color).withOpacity(0.4),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -81,7 +89,7 @@ class CardsTab extends ConsumerWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(card.bank, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(bankName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                         Row(
                           children: [
                             const Icon(Icons.credit_card, color: Colors.white),
@@ -121,14 +129,14 @@ class CardsTab extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('Limit', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                            Text(AppUtils.formatCurrency(card.limit), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text(AppUtils.formatCurrency(card.limit, currency: currency), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             const Text('Güncel Borç', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                            Text(AppUtils.formatCurrency(card.currentDebt), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text(AppUtils.formatCurrency(card.currentDebt, currency: currency), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ],
@@ -140,7 +148,7 @@ class CardsTab extends ConsumerWidget {
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                     const SizedBox(height: 8),
-                    Text('Kullanılabilir: ${AppUtils.formatCurrency(availableLimit)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text('Kullanılabilir: ${AppUtils.formatCurrency(availableLimit, currency: currency)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                   ],
                 ),
               );

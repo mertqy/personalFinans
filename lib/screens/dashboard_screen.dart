@@ -5,6 +5,7 @@ import '../providers/account_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/budget_provider.dart';
 import '../providers/credit_card_provider.dart';
+import '../providers/subscription_provider.dart';
 import '../core/utils.dart';
 import '../providers/navigation_provider.dart';
 import '../widgets/transaction_modal.dart';
@@ -26,6 +27,7 @@ class DashboardScreen extends ConsumerWidget {
     final budgets = ref.watch(budgetProvider);
     final goals = ref.watch(goalProvider);
     final creditCards = ref.watch(creditCardProvider);
+    final subscriptions = ref.watch(subscriptionProvider);
     final plannedCount = transactions.where((t) => t.isPlanned).length;
 
     // Bütçe uyarı sayısı
@@ -178,9 +180,9 @@ class DashboardScreen extends ConsumerWidget {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.1),
+                      color: Colors.green.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+                      border: Border.all(color: Colors.green.withOpacity(0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +191,7 @@ class DashboardScreen extends ConsumerWidget {
                           children: [
                             Icon(Icons.arrow_downward, color: Colors.green, size: 16),
                             const SizedBox(width: 4),
-                            Text('Gelir', style: TextStyle(color: Colors.green.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('Gelir', style: TextStyle(color: Colors.green.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.w600)),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -206,9 +208,9 @@ class DashboardScreen extends ConsumerWidget {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
+                      color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                      border: Border.all(color: Colors.red.withOpacity(0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,7 +219,7 @@ class DashboardScreen extends ConsumerWidget {
                           children: [
                             Icon(Icons.arrow_upward, color: Colors.red, size: 16),
                             const SizedBox(width: 4),
-                            Text('Gider', style: TextStyle(color: Colors.red.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('Gider', style: TextStyle(color: Colors.red.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.w600)),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -273,6 +275,7 @@ class DashboardScreen extends ConsumerWidget {
                 final forecast = InsightsService.calculateEndOfMonthForecast(
                   currentBalance: totalBalance,
                   transactions: transactions,
+                  subscriptions: subscriptions,
                 );
                 final diff = forecast - totalBalance;
                 final isPositive = diff >= 0;
@@ -280,16 +283,16 @@ class DashboardScreen extends ConsumerWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(Icons.calendar_month, color: Theme.of(context).colorScheme.primary),
@@ -299,7 +302,7 @@ class DashboardScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Tahmini Ay Sonu', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+                            Text('Tahmini Ay Sonu', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
                             const SizedBox(height: 2),
                             Text(
                               AppUtils.formatCurrency(forecast, currency: 'TRY'),
@@ -311,7 +314,7 @@ class DashboardScreen extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: (isPositive ? Colors.green : Colors.red).withValues(alpha: 0.1),
+                          color: (isPositive ? Colors.green : Colors.red).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -338,9 +341,9 @@ class DashboardScreen extends ConsumerWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.08),
+                    color: color.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: color.withValues(alpha: 0.2)),
+                    border: Border.all(color: color.withOpacity(0.2)),
                   ),
                   child: Row(
                     children: [
@@ -416,7 +419,7 @@ class DashboardScreen extends ConsumerWidget {
                           leading: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: isIncome ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+                              color: isIncome ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(AppUtils.getCategoryIcon(tx.category), style: const TextStyle(fontSize: 20)),
@@ -429,7 +432,7 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                           subtitle: Text(
                             '${tx.type == 'transfer' ? 'Transfer' : AppUtils.getCategoryName(tx.category)} • ${AppUtils.formatDate(tx.date)}',
-                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                           ),
                           trailing: Builder(
                             builder: (context) {
@@ -490,7 +493,7 @@ class DashboardScreen extends ConsumerWidget {
                 if (lastUpdated != null)
                   Text(
                     'Son: ${DateFormat('HH:mm').format(lastUpdated)}',
-                    style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                    style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
                   ),
                 const SizedBox(width: 4),
                 IconButton(
@@ -515,9 +518,9 @@ class DashboardScreen extends ConsumerWidget {
                 margin: const EdgeInsets.only(right: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5)),
                 ),
                 child: Column(
                   children: [
@@ -573,14 +576,14 @@ class DashboardScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: color.withValues(alpha: 0.2)),
+              border: Border.all(color: color.withOpacity(0.2)),
             ),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
+          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontWeight: FontWeight.w500)),
         ],
       ),
     );

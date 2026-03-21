@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/budget_provider.dart';
 import '../models/budget.dart';
@@ -8,7 +7,8 @@ import '../core/utils.dart';
 import '../core/formatters.dart';
 
 class AddBudgetModal extends ConsumerStatefulWidget {
-  const AddBudgetModal({super.key});
+  final Budget? budget;
+  const AddBudgetModal({super.key, this.budget});
 
   @override
   ConsumerState<AddBudgetModal> createState() => _AddBudgetModalState();
@@ -16,19 +16,24 @@ class AddBudgetModal extends ConsumerStatefulWidget {
 
 class _AddBudgetModalState extends ConsumerState<AddBudgetModal> {
   final _formKey = GlobalKey<FormState>();
-  final _amountController = TextEditingController();
+  late final TextEditingController _amountController;
   
   String? _selectedCategory;
   String _period = 'monthly';
 
-  // Only expense categories for budgets
   List<Map<String, dynamic>> get _expenseCategories =>
-      AppConstants.defaultCategories.where((c) => c['type'] == 'expense').toList();
+      AppConstants.defaultCategories.where((c) => c['type'] == 'expense' || c['type'] == 'transfer').toList();
 
   @override
   void initState() {
     super.initState();
-    if (_expenseCategories.isNotEmpty) {
+    _amountController = TextEditingController(
+      text: widget.budget != null ? ThousandsSeparatorInputFormatter.format(widget.budget!.amount) : '',
+    );
+    _selectedCategory = widget.budget?.categoryId;
+    _period = widget.budget?.period ?? 'monthly';
+
+    if (_selectedCategory == null && _expenseCategories.isNotEmpty) {
       _selectedCategory = _expenseCategories.first['id'] as String;
     }
   }
@@ -42,25 +47,38 @@ class _AddBudgetModalState extends ConsumerState<AddBudgetModal> {
   void _save() {
     if (_formKey.currentState!.validate()) {
       if (_selectedCategory == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kategori seçiniz')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kategori seçiniz')));
         return;
       }
 
       final amount = ThousandsSeparatorInputFormatter.parse(_amountController.text);
 
-      final budget = Budget(
-        id: AppUtils.generateId(),
-        userId: 'temp_user_id',
-        categoryId: _selectedCategory!,
-        amount: amount,
-        period: _period,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+      if (widget.budget != null) {
+        final updated = widget.budget!;
+        updated.amount = amount;
+        updated.categoryId = _selectedCategory!;
+        updated.period = _period;
+        updated.updatedAt = DateTime.now();
+        ref.read(budgetProvider.notifier).updateBudget(updated);
+      } else {
+        // Check if budget for this category already exists
+        final existing = ref.read(budgetProvider).where((b) => b.categoryId == _selectedCategory && b.period == _period).firstOrNull;
+        if (existing != null) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu kategori için zaten bir bütçe var. Düzenlemeyi deneyin.')));
+          return;
+        }
 
-      ref.read(budgetProvider.notifier).addBudget(budget);
+        final budget = Budget(
+          id: AppUtils.generateId(),
+          userId: 'temp_user_id',
+          categoryId: _selectedCategory!,
+          amount: amount,
+          period: _period,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        ref.read(budgetProvider.notifier).addBudget(budget);
+      }
       Navigator.pop(context);
     }
   }
@@ -70,7 +88,7 @@ class _AddBudgetModalState extends ConsumerState<AddBudgetModal> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -78,89 +96,100 @@ class _AddBudgetModalState extends ConsumerState<AddBudgetModal> {
       ),
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Yeni Bütçe Ekle', style: Theme.of(context).textTheme.titleLarge),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Category Dropdown
-            DropdownButtonFormField<String>(
-              value: _expenseCategories.any((cat) => cat['id'] == _selectedCategory) ? _selectedCategory : null,
-              items: _expenseCategories.map((cat) {
-                return DropdownMenuItem<String>(
-                  value: cat['id'] as String,
-                  child: Row(
-                    children: [
-                      Text(cat['icon'] as String, style: const TextStyle(fontSize: 18)),
-                      const SizedBox(width: 8),
-                      Text(cat['name'] as String),
-                    ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    widget.budget == null ? 'Yeni Bütçe Ekle' : 'Bütçeyi Düzenle',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                   ),
-                );
-              }).toList(),
-              onChanged: (val) => setState(() => _selectedCategory = val),
-              decoration: const InputDecoration(labelText: 'Kategori'),
-              validator: (val) => val == null ? 'Kategori seçiniz' : null,
-            ),
-            const SizedBox(height: 16),
-
-            // Amount Input
-            TextFormField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                ThousandsSeparatorInputFormatter(),
-              ],
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(
-                labelText: 'Bütçe Limiti',
-                prefixText: '₺ ',
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                ],
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Tutar giriniz';
-                final val = ThousandsSeparatorInputFormatter.parse(value);
-                if (val <= 0) return 'Tutar 0\'dan büyük olmalıdır';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-            // Period Selection
-            DropdownButtonFormField<String>(
-              value: AppConstants.budgetPeriods.any((p) => p['id'] == _period) ? _period : null,
-              items: AppConstants.budgetPeriods.map((p) {
-                return DropdownMenuItem<String>(
-                  value: p['id'] as String,
-                  child: Text(p['name'] as String),
-                );
-              }).toList(),
-              onChanged: (val) => setState(() => _period = val!),
-              decoration: const InputDecoration(labelText: 'Dönem'),
-            ),
-            const SizedBox(height: 24),
-
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
+              // Category Selection
+              DropdownButtonFormField<String>(
+                value: _expenseCategories.any((cat) => cat['id'] == _selectedCategory) ? _selectedCategory : null,
+                items: _expenseCategories.map((cat) {
+                  return DropdownMenuItem<String>(
+                    value: cat['id'] as String,
+                    child: Row(
+                      children: [
+                        Text(cat['icon'] as String, style: const TextStyle(fontSize: 20)),
+                        const SizedBox(width: 12),
+                        Text(cat['name'] as String),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _selectedCategory = val),
+                decoration: const InputDecoration(
+                  labelText: 'Kategori',
+                  border: OutlineInputBorder(),
                 ),
-                child: const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                validator: (val) => val == null ? 'Kategori seçiniz' : null,
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 20),
+
+              // Period Selection
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'monthly', label: Text('Aylık'), icon: Icon(Icons.calendar_month)),
+                  ButtonSegment(value: 'yearly', label: Text('Yıllık'), icon: Icon(Icons.calendar_today)),
+                ],
+                selected: {_period},
+                onSelectionChanged: (val) => setState(() => _period = val.first),
+                style: SegmentedButton.styleFrom(
+                  selectedForegroundColor: Colors.white,
+                  selectedBackgroundColor: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Amount Input
+              TextFormField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [ThousandsSeparatorInputFormatter()],
+                decoration: const InputDecoration(
+                  labelText: 'Limit Tutar',
+                  prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Tutar giriniz';
+                  if (ThousandsSeparatorInputFormatter.parse(val) <= 0) return 'Tutar geçersiz';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 32),
+
+              // Save Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    widget.budget == null ? 'Bütçe Oluştur' : 'Güncelle',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );

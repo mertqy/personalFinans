@@ -43,6 +43,9 @@ class Loan extends HiveObject {
   @HiveField(12)
   DateTime updatedAt;
 
+  @HiveField(13)
+  bool isCompleted;
+
   Loan({
     required this.id,
     required this.name,
@@ -57,5 +60,6 @@ class Loan extends HiveObject {
     required this.endDate,
     required this.createdAt,
     required this.updatedAt,
+    this.isCompleted = false,
   });
 }

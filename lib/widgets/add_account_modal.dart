@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/account_provider.dart';
+import '../providers/transaction_provider.dart';
 import '../models/account.dart';
+import '../models/transaction.dart';
 import '../core/utils.dart';
 import '../core/formatters.dart';
 
@@ -77,6 +79,24 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
           updatedAt: DateTime.now(),
         );
         ref.read(accountProvider.notifier).addAccount(account);
+
+        // Açılış bakiyesini işlem olarak ekle (Son işlemlerde gözükmesi için)
+        if (amount > 0) {
+          final tx = Transaction(
+            id: AppUtils.generateId(),
+            userId: 'temp_user_id',
+            type: 'income',
+            amount: amount,
+            category: 'Açılış Bakiyesi',
+            description: '${account.name} Hesabı Açıldı',
+            date: DateTime.now(),
+            isPlanned: false,
+            accountId: account.id,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          ref.read(transactionProvider.notifier).addTransaction(tx);
+        }
       }
       
       Navigator.pop(context);

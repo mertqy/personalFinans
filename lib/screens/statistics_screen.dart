@@ -30,9 +30,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   @override
   void initState() {
-    _trendTooltip = TooltipBehavior(enable: true, format: 'point.x : ₺ point.y');
-    _comparisonTooltip = TooltipBehavior(enable: true, shared: true, format: '₺ point.y');
-    _pieTooltip = TooltipBehavior(enable: true, format: 'point.x : ₺ point.y');
+    final symbol = AppUtils.getCurrencySymbol('TRY');
+    _trendTooltip = TooltipBehavior(enable: true, format: 'point.x : $symbol point.y');
+    _comparisonTooltip = TooltipBehavior(enable: true, shared: true, format: '$symbol point.y');
+    _pieTooltip = TooltipBehavior(enable: true, format: 'point.x : $symbol point.y');
     super.initState();
   }
 
@@ -84,11 +85,24 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       AppConstants.chartColors['DANGER']!,
     ];
 
-    final List<_ChartData> pieData = sortedCategories.asMap().entries.map((entry) {
-      final i = entry.key;
-      final e = entry.value;
-      return _ChartData(AppUtils.getCategoryName(e.key), e.value, chartColors[i % chartColors.length]);
-    }).toList();
+    // Pie chart için verileri düzenle (ilk 6 + Diğer)
+    final List<_ChartData> pieData = [];
+    if (sortedCategories.length <= 7) {
+      for (int i = 0; i < sortedCategories.length; i++) {
+        final e = sortedCategories[i];
+        pieData.add(_ChartData(AppUtils.getCategoryName(e.key), e.value, chartColors[i % chartColors.length]));
+      }
+    } else {
+      for (int i = 0; i < 6; i++) {
+        final e = sortedCategories[i];
+        pieData.add(_ChartData(AppUtils.getCategoryName(e.key), e.value, chartColors[i]));
+      }
+      double otherTotal = 0;
+      for (int i = 6; i < sortedCategories.length; i++) {
+        otherTotal += sortedCategories[i].value;
+      }
+      pieData.add(_ChartData('Diğer', otherTotal, Colors.grey));
+    }
 
     // Data for Trend Chart (Last 7 days)
     final now = DateTime.now();
@@ -111,7 +125,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     final prevMonth = prevMonthDate.month;
     final prevYear = prevMonthDate.year;
 
-    final List<_ChartData> currentMonthData = List.generate(31, (index) {
+    final currentMonthDays = DateTime(currentYear, currentMonth + 1, 0).day;
+    final List<_ChartData> currentMonthData = List.generate(currentMonthDays, (index) {
       final day = index + 1;
       final dayTotal = filteredTransactions
           .where((t) => t.date.year == currentYear && t.date.month == currentMonth && t.date.day == day)
@@ -119,7 +134,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       return _ChartData(day, dayTotal);
     });
 
-    final List<_ChartData> prevMonthData = List.generate(31, (index) {
+    final prevMonthDays = DateTime(prevYear, prevMonth + 1, 0).day;
+    final List<_ChartData> prevMonthData = List.generate(prevMonthDays, (index) {
       final day = index + 1;
       final dayTotal = filteredTransactions
           .where((t) => t.date.year == prevYear && t.date.month == prevMonth && t.date.day == day)
@@ -148,7 +164,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               if (totalAmount > 0) ...[
                 _buildPieChart(pieData, totalAmount, themeColor),
                 const SizedBox(height: 16),
-                _buildCategoryList(sortedCategories, totalAmount, chartColors),
+                _buildCategoryList(pieData, totalAmount),
               ] else 
                 _buildEmptyState(isExpenseView ? 'Harcama verisi bulunamadı' : 'Gelir verisi bulunamadı'),
 
@@ -218,7 +234,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         ],
         series: <CircularSeries<_ChartData, String>>[
           DoughnutSeries<_ChartData, String>(
-            dataSource: data.take(7).toList(),
+            dataSource: data,
             xValueMapper: (_ChartData d, _) => d.x as String,
             yValueMapper: (_ChartData d, _) => d.y,
             pointColorMapper: (_ChartData d, _) => d.color,
@@ -255,7 +271,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             dataSource: data,
             xValueMapper: (_ChartData d, _) => d.x as String,
             yValueMapper: (_ChartData d, _) => d.y,
-            color: color.withValues(alpha: 0.1),
+            color: color.withOpacity(0.1),
             borderColor: color,
             borderWidth: 3,
             markerSettings: MarkerSettings(
@@ -300,7 +316,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             dataSource: prev,
             xValueMapper: (_ChartData d, _) => d.x as num,
             yValueMapper: (_ChartData d, _) => d.y,
-            color: Colors.grey.withValues(alpha: 0.4),
+            color: Colors.grey.withOpacity(0.4),
             width: 2,
             dashArray: const [5, 5],
           ),
@@ -309,26 +325,26 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  Widget _buildCategoryList(List<MapEntry<String, double>> categories, double total, List<Color> colors) {
+  Widget _buildCategoryList(List<_ChartData> pieData, double total) {
     return Column(
-      children: List.generate(categories.length > 7 ? 7 : categories.length, (i) {
-        final category = categories[i];
-        final percentage = (category.value / total) * 100;
+      children: List.generate(pieData.length, (i) {
+        final d = pieData[i];
+        final percentage = (d.y / total) * 100;
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 6.0),
           child: Row(
             children: [
               Container(
                 width: 10, height: 10,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: colors[i % colors.length]),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: d.color),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(AppUtils.getCategoryName(category.key), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                child: Text(d.x as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
               ),
               Text('%${NumberFormat('##0.0', 'tr_TR').format(percentage)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(width: 15),
-              Text(AppUtils.formatCurrency(category.value), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              Text(AppUtils.formatCurrency(d.y), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
         );
@@ -346,7 +362,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         padding: const EdgeInsets.symmetric(vertical: 40),
         child: Column(
           children: [
-            Icon(Icons.pie_chart_outline, size: 40, color: Colors.grey.withValues(alpha: 0.3)),
+            Icon(Icons.pie_chart_outline, size: 40, color: Colors.grey.withOpacity(0.3)),
             const SizedBox(height: 12),
             Text(message, style: const TextStyle(color: Colors.grey, fontSize: 13)),
           ],
