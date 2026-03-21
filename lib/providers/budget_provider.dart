@@ -59,4 +59,16 @@ class GoalNotifier extends StateNotifier<List<Goal>> {
     BudgetStorageService.deleteGoal(id);
     loadGoals();
   }
+
+  void adjustGoalAmount(String goalId, double amount) {
+    final goal = state.where((g) => g.id == goalId).firstOrNull;
+    if (goal != null) {
+      goal.currentAmount += amount;
+      if (goal.currentAmount < 0) goal.currentAmount = 0;
+      if (goal.currentAmount >= goal.targetAmount) goal.isCompleted = true;
+      goal.updatedAt = DateTime.now();
+      BudgetStorageService.updateGoal(goal);
+      loadGoals();
+    }
+  }
 }

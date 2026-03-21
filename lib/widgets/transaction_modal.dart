@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/credit_card_provider.dart';
+import '../providers/budget_provider.dart';
 import '../models/transaction.dart';
 import '../core/constants.dart';
 import '../core/utils.dart';
+import '../core/formatters.dart';
+import 'package:geolocator/geolocator.dart';
+import '../screens/location_picker_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 class TransactionModal extends ConsumerStatefulWidget {
-  const TransactionModal({super.key});
+  final Transaction? transaction;
+  final String? initialType;
+  const TransactionModal({super.key, this.transaction, this.initialType});
 
   @override
   ConsumerState<TransactionModal> createState() => _TransactionModalState();
@@ -16,33 +24,155 @@ class TransactionModal extends ConsumerStatefulWidget {
 
 class _TransactionModalState extends ConsumerState<TransactionModal> {
   final _formKey = GlobalKey<FormState>();
-  String _type = 'expense'; // expense, income, transfer
-  final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
+  String _type = 'expense';
+  late final TextEditingController _amountController;
+  late final TextEditingController _descriptionController;
   
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
-  String? _selectedMethodId; // Combined ID for dropdown: 'card_id' or 'acc_id'
+  String? _selectedMethodId;
   String? _selectedAccountId;
   String? _selectedCreditCardId;
+  String? _selectedToId; // Transfer için hedef
   
   bool _isRecurring = false;
   String _recurringFrequency = 'monthly';
+
+  bool _addLocation = false;
+  double? _lat;
+  double? _lng;
 
   final List<String> _recurringOptions = ['daily', 'weekly', 'monthly', 'yearly'];
 
   @override
   void initState() {
     super.initState();
-    // Set initial category based on type
-    _updateDefaultCategory();
+    final tx = widget.transaction;
+    
+    _type = tx?.type ?? widget.initialType ?? 'expense';
+    _amountController = TextEditingController(
+      text: tx != null ? ThousandsSeparatorInputFormatter.format(tx.amount) : '',
+    );
+    _descriptionController = TextEditingController(text: tx?.description);
+    
+    final catMap = AppUtils.getCategoryById(tx?.category ?? '');
+    _selectedCategory = catMap?['id'];
+    
+    _selectedDate = tx?.date ?? DateTime.now();
+    _isRecurring = tx?.isRecurring ?? false;
+    _recurringFrequency = tx?.recurringFrequency ?? 'monthly';
+    
+    if (tx != null) {
+      if (tx.creditCardId != null) {
+        _selectedMethodId = 'card_${tx.creditCardId}';
+        _selectedCreditCardId = tx.creditCardId;
+      } else {
+        _selectedMethodId = 'acc_${tx.accountId}';
+        _selectedAccountId = tx.accountId;
+      }
+      
+      if (tx.toAccountId != null) {
+        _selectedToId = 'acc_${tx.toAccountId}';
+      } else if (tx.toGoalId != null) {
+        _selectedToId = 'goal_${tx.toGoalId}';
+      }
+      
+      _lat = tx.locationLat;
+      _lng = tx.locationLng;
+      _addLocation = _lat != null;
+    } else {
+      _updateDefaultCategory();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final accounts = ref.read(accountProvider);
+        if (accounts.isNotEmpty && _selectedMethodId == null) {
+          setState(() {
+            _selectedMethodId = 'acc_${accounts.first.id}';
+            _selectedAccountId = accounts.first.id;
+          });
+        }
+      });
+    }
   }
 
   void _updateDefaultCategory() {
-    final categories = AppConstants.defaultCategories.where((c) => c['type'] == _type).toList();
-    if (categories.isNotEmpty) {
-      _selectedCategory = categories.first['name'];
+    final currentCat = AppUtils.getCategoryById(_selectedCategory ?? '');
+    final typeMismatch = currentCat != null && currentCat['type'] != _type;
+    
+    if (widget.transaction == null || typeMismatch || _selectedCategory == null) {
+      final categories = AppConstants.defaultCategories.where((c) => c['type'] == _type).toList();
+      if (categories.isNotEmpty) {
+        _selectedCategory = categories.first['id'];
+      } else {
+        _selectedCategory = null;
+      }
     }
+  }
+
+  String _getCurrencyCode() {
+    if (_selectedCreditCardId != null) {
+      final cardList = ref.read(creditCardProvider);
+      final card = cardList.firstWhere((c) => c.id == _selectedCreditCardId, orElse: () => cardList.first);
+      final accList = ref.read(accountProvider);
+      final acc = accList.firstWhere((a) => a.id == card.accountId, orElse: () => accList.first);
+      return acc.currency;
+    } else if (_selectedAccountId != null) {
+      final accList = ref.read(accountProvider);
+      final acc = accList.firstWhere((a) => a.id == _selectedAccountId, orElse: () => accList.first);
+      return acc.currency;
+    }
+    return 'TRY';
+  }
+
+  String _getCurrencySymbol() {
+    final code = _getCurrencyCode();
+    final Map<String, String> currencySymbols = {
+      'TRY': '₺',
+      'USD': r'$',
+      'EUR': '€',
+      'GBP': '£',
+      'GOLD': 'gr',
+    };
+    return currencySymbols[code] ?? '₺';
+  }
+
+  Future<void> _handleLocation(bool value) async {
+    if (value) {
+      setState(() => _addLocation = true);
+      try {
+        final pos = await _getCurrentLocation();
+        if (pos != null) {
+          setState(() {
+            _lat = pos.latitude;
+            _lng = pos.longitude;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum alınamadı. Lütfen izinleri kontrol edin.')));
+           setState(() => _addLocation = false);
+        }
+      }
+    } else {
+      setState(() {
+        _addLocation = false;
+        _lat = null;
+        _lng = null;
+      });
+    }
+  }
+
+  Future<Position?> _getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return null;
+    }
+    if (permission == LocationPermission.deniedForever) return null;
+
+    return await Geolocator.getCurrentPosition();
   }
 
   @override
@@ -64,58 +194,151 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         return;
       }
 
-      final amountStr = _amountController.text.replaceAll(',', '.');
-      final amount = double.tryParse(amountStr) ?? 0.0;
+      if (_type == 'transfer' && _selectedToId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hedef hesap veya birikim seçiniz')));
+        return;
+      }
 
-      final transaction = Transaction(
-        id: AppUtils.generateId(),
-        userId: 'temp_user_id', // auth sonrası değişecek
-        type: _type,
-        amount: amount,
-        category: _selectedCategory ?? 'Transfer',
-        description: _descriptionController.text.isEmpty ? (_selectedCategory ?? 'Transfer') : _descriptionController.text,
-        date: _selectedDate,
-        isPlanned: false, // Gelecekte planlı işlemler eklenebilir
-        isRecurring: _isRecurring,
-        recurringFrequency: _isRecurring ? _recurringFrequency : null,
-        accountId: _selectedAccountId ?? '',
-        creditCardId: _selectedCreditCardId,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+      final amount = ThousandsSeparatorInputFormatter.parse(_amountController.text);
+      final categoryName = AppUtils.getCategoryName(_selectedCategory ?? 'Transfer');
 
-      // Provider üzerinden ekle (otomatik bakiye düşülecek)
-      ref.read(transactionProvider.notifier).addTransaction(transaction);
-
-      // Hesaptan veya karttan bakiyeyi düş / ekle
-      if (_type == 'expense') {
-        if (_selectedCreditCardId != null) {
-          ref.read(creditCardProvider.notifier).adjustDebt(_selectedCreditCardId!, amount);
-        } else if (_selectedAccountId != null) {
-          ref.read(accountProvider.notifier).adjustBalance(_selectedAccountId!, -amount);
+      // Bakiye Kontrolü (Normal hesaplar eksiye düşmemeli)
+      if (_selectedAccountId != null && (_type == 'expense' || _type == 'transfer')) {
+        final accounts = ref.read(accountProvider);
+        final account = accounts.firstWhere((a) => a.id == _selectedAccountId);
+        
+        double currentBalance = account.balance;
+        if (widget.transaction != null && widget.transaction!.accountId == _selectedAccountId) {
+          // Düzenleme modunda eski tutarı bakiyeye "varmış gibi" ekleyip kontrol edelim
+          // Notifier zaten revert ederken ekleyecek, burada sadece kontrol için simüle ediyoruz.
+          if (widget.transaction!.type == 'expense' || widget.transaction!.type == 'transfer') {
+             currentBalance += widget.transaction!.amount;
+          } else if (widget.transaction!.type == 'income') {
+             currentBalance -= widget.transaction!.amount;
+          }
         }
-      } else if (_type == 'income') {
-        if (_selectedAccountId != null) {
-          ref.read(accountProvider.notifier).adjustBalance(_selectedAccountId!, amount);
+
+        if (amount > currentBalance) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Yetersiz Bakiye'),
+                ],
+              ),
+              content: Text('Bu işlem için seçili hesapta yeterli bakiye bulunmuyor.\n\nEn fazla harcayabileceğiniz tutar: ${ThousandsSeparatorInputFormatter.format(currentBalance)} ${_getCurrencySymbol()}'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Anladım'),
+                ),
+              ],
+            ),
+          );
+          return;
         }
+      }
+
+      String? toAccId;
+      String? toGoalId;
+      if (_type == 'transfer' && _selectedToId != null) {
+        if (_selectedToId!.startsWith('acc_')) {
+          toAccId = _selectedToId!.substring(4);
+        } else if (_selectedToId!.startsWith('goal_')) {
+          toGoalId = _selectedToId!.substring(5);
+        }
+      }
+
+      if (widget.transaction != null) {
+        // Clone for safe update (revert/apply handled in notifier)
+        final tx = widget.transaction!;
+        tx.type = _type;
+        tx.amount = amount;
+        tx.category = _selectedCategory ?? 'Transfer';
+        tx.description = _descriptionController.text.isEmpty ? (_type == 'transfer' ? 'Transfer' : categoryName) : _descriptionController.text;
+        tx.date = _selectedDate;
+        tx.isRecurring = _isRecurring;
+        tx.recurringFrequency = _isRecurring ? _recurringFrequency : null;
+        tx.accountId = _selectedAccountId ?? '';
+        tx.creditCardId = _selectedCreditCardId;
+        tx.toAccountId = toAccId;
+        tx.toGoalId = toGoalId;
+        tx.locationLat = _addLocation ? _lat : null;
+        tx.locationLng = _addLocation ? _lng : null;
+        tx.updatedAt = DateTime.now();
+
+        ref.read(transactionProvider.notifier).updateTransaction(tx);
+      } else {
+        final transaction = Transaction(
+          id: AppUtils.generateId(),
+          userId: 'temp_user_id',
+          type: _type,
+          amount: amount,
+          category: _selectedCategory ?? 'Transfer',
+          description: _descriptionController.text.isEmpty ? (_type == 'transfer' ? 'Transfer' : categoryName) : _descriptionController.text,
+          date: _selectedDate,
+          isPlanned: false,
+          isRecurring: _isRecurring,
+          recurringFrequency: _isRecurring ? _recurringFrequency : null,
+          accountId: _selectedAccountId ?? '',
+          creditCardId: _selectedCreditCardId,
+          toAccountId: toAccId,
+          toGoalId: toGoalId,
+          locationLat: _addLocation ? _lat : null,
+          locationLng: _addLocation ? _lng : null,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        ref.read(transactionProvider.notifier).addTransaction(transaction);
       }
 
       Navigator.pop(context);
     }
   }
 
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('İşlemi Sil'),
+        content: const Text('Bu işlemi silmek istediğinize emin misiniz? Bakiye/Borç durumu otomatik olarak düzeltilecektir.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          ElevatedButton(
+            onPressed: () {
+              if (widget.transaction != null) {
+                ref.read(transactionProvider.notifier).deleteTransaction(widget.transaction!);
+              }
+              Navigator.pop(context); // Dialog
+              Navigator.pop(this.context); // Modal
+              ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('İşlem silindi')));
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(accountProvider);
     final cards = ref.watch(creditCardProvider);
-
-    // Filter categories based on selected type
-    final filteredCategories = AppConstants.defaultCategories.where((cat) => cat['type'] == _type).toList();
+    final goals = ref.watch(goalProvider);
+    
+    final List<Map<String, dynamic>> filteredCategories = _type == 'transfer'
+        ? []
+        : AppConstants.defaultCategories.where((cat) => cat['type'] == _type).toList();
 
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -128,90 +351,105 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Yeni İşlem Ekle', style: Theme.of(context).textTheme.titleLarge),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  Text(
+                    widget.transaction == null ? 'Yeni İşlem' : 'İşlemi Düzenle',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  Row(
+                    children: [
+                      if (widget.transaction != null)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: _confirmDelete,
+                        ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
 
-              // Segmented Control for Type
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'expense', label: Text('Gider'), icon: Icon(Icons.arrow_upward)),
-                  ButtonSegment(value: 'income', label: Text('Gelir'), icon: Icon(Icons.arrow_downward)),
+                  ButtonSegment(value: 'expense', label: Text('Gider'), icon: Icon(Icons.keyboard_arrow_up)),
+                  ButtonSegment(value: 'income', label: Text('Gelir'), icon: Icon(Icons.keyboard_arrow_down)),
+                  ButtonSegment(value: 'transfer', label: Text('Transfer'), icon: Icon(Icons.swap_horiz)),
                 ],
                 selected: {_type},
                 onSelectionChanged: (Set<String> newSelection) {
                   setState(() {
                     _type = newSelection.first;
                     _updateDefaultCategory();
-                    // Reset selected method if it's a card and switching to income
-                    if (_type == 'income' && _selectedMethodId != null && _selectedMethodId!.startsWith('card_')) {
-                      _selectedMethodId = null;
-                      _selectedAccountId = null;
+                    if (_type == 'income') {
                       _selectedCreditCardId = null;
+                      if (_selectedMethodId?.startsWith('card_') ?? false) {
+                         _selectedMethodId = null; 
+                      }
                     }
                   });
                 },
                 style: SegmentedButton.styleFrom(
                   selectedForegroundColor: Colors.white,
-                  selectedBackgroundColor: _type == 'expense' ? Colors.red : Colors.green,
+                  selectedBackgroundColor: _type == 'expense' ? Colors.red : (_type == 'income' ? Colors.green : Colors.blue),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Tutar Input
               TextFormField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  ThousandsSeparatorInputFormatter(),
+                ],
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Tutar',
-                  prefixText: '₺ ',
+                  prefixText: '${_getCurrencySymbol()} ',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Tutar giriniz';
-                  if (double.tryParse(value.replaceAll(',', '.')) == null) return 'Geçerli bir sayı giriniz';
+                  final val = ThousandsSeparatorInputFormatter.parse(value);
+                  if (val <= 0) return 'Tutar 0\'dan büyük olmalıdır';
                   return null;
                 },
               ),
               const SizedBox(height: 16),
 
-              // Kategori Dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                items: filteredCategories.map((cat) {
-                  return DropdownMenuItem<String>(
-                    value: cat['name'] as String,
-                    child: Row(
-                      children: [
-                        Text(cat['icon'] as String, style: const TextStyle(fontSize: 18)),
-                        const SizedBox(width: 8),
-                        Text(cat['name'] as String),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: (val) => setState(() => _selectedCategory = val),
-                decoration: const InputDecoration(labelText: 'Kategori'),
-                validator: (val) => val == null ? 'Kategori seçiniz' : null,
-              ),
-              const SizedBox(height: 16),
+              if (_type != 'transfer') ...[
+                DropdownButtonFormField<String>(
+                  value: filteredCategories.any((cat) => cat['id'] == _selectedCategory) ? _selectedCategory : null,
+                  items: filteredCategories.map((cat) {
+                    return DropdownMenuItem<String>(
+                      value: cat['id'] as String,
+                      child: Row(
+                        children: [
+                          Text(cat['icon'] as String, style: const TextStyle(fontSize: 18)),
+                          const SizedBox(width: 8),
+                          Text(cat['name'] as String),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setState(() => _selectedCategory = val),
+                  decoration: const InputDecoration(labelText: 'Kategori'),
+                  validator: (val) => val == null ? 'Kategori seçiniz' : null,
+                ),
+                const SizedBox(height: 16),
+              ],
 
-              // Açıklama Input
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(labelText: 'Açıklama (İsteğe Bağlı)'),
               ),
               const SizedBox(height: 16),
 
-              // Tarih Seçici
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 title: const Text('Tarih'),
                 subtitle: Text(AppUtils.formatDate(_selectedDate)),
                 trailing: const Icon(Icons.calendar_today),
@@ -229,13 +467,12 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
               ),
               const SizedBox(height: 16),
 
-              // Hesap / Kart Seçimi (Gider için kart da seçilebilir)
-              Text('Ödeme Yöntemi', style: Theme.of(context).textTheme.titleSmall),
+              Text(_type == 'transfer' ? 'Nereden?' : 'Ödeme Yöntemi', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _selectedMethodId,
                 items: <DropdownMenuItem<String>>[
-                  if (_type == 'expense' && cards.isNotEmpty) ...[
+                  if ((_type == 'expense' || _type == 'transfer') && cards.isNotEmpty) ...[
                     const DropdownMenuItem<String>(
                       value: 'header_cards',
                       enabled: false,
@@ -254,6 +491,9 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                 ],
                 onChanged: (val) {
                   if (val == null || val.startsWith('header_')) return;
+                  
+                  final oldCurrency = _getCurrencyCode();
+                  
                   setState(() {
                     _selectedMethodId = val;
                     if (val.startsWith('card_')) {
@@ -263,15 +503,59 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                       _selectedAccountId = val.substring(4);
                       _selectedCreditCardId = null;
                     }
+                    
+                    final newCurrency = _getCurrencyCode();
+                    
+                    if (oldCurrency != newCurrency) {
+                      final currentAmount = ThousandsSeparatorInputFormatter.parse(_amountController.text);
+                      if (currentAmount > 0) {
+                        final convertedAmount = AppUtils.convertToBaseCurrency(currentAmount, oldCurrency, newCurrency);
+                        _amountController.text = ThousandsSeparatorInputFormatter.format(convertedAmount);
+                      }
+                    }
                   });
                 },
-                decoration: const InputDecoration(labelText: 'Hangi Hesaptan/Karttan?'),
+                decoration: InputDecoration(labelText: _type == 'transfer' ? 'Hangi Hesaptan?' : 'Hangi Hesaptan/Karttan?'),
                 hint: const Text('Seçiniz'),
-                validator: (val) => (val == null || val.startsWith('header_')) ? 'Ödeme yöntemi seçiniz' : null,
+                validator: (val) => (val == null || val.startsWith('header_')) ? 'Kaynak seçiniz' : null,
               ),
+              
+              if (_type == 'transfer') ...[
+                const SizedBox(height: 16),
+                Text('Nereye?', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedToId,
+                  items: <DropdownMenuItem<String>>[
+                    if (accounts.isNotEmpty) ...[
+                      const DropdownMenuItem<String>(
+                        value: 'header_acc_to',
+                        enabled: false,
+                        child: Text('--- Hesaplar ---', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      ),
+                      ...accounts.where((acc) => 'acc_${acc.id}' != _selectedMethodId).map((acc) => DropdownMenuItem<String>(value: 'acc_${acc.id}', child: Text('${acc.name} (${acc.currency})'))),
+                    ],
+                    if (goals.isNotEmpty) ...[
+                      const DropdownMenuItem<String>(
+                        value: 'header_goals_to',
+                        enabled: false,
+                        child: Text('--- Birikim Hedefleri ---', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      ),
+                      ...goals.where((g) => !g.isCompleted).map((goal) => DropdownMenuItem<String>(value: 'goal_${goal.id}', child: Text('${goal.title} (Hedef)'))),
+                    ],
+                  ],
+                  onChanged: (val) {
+                    if (val == null || val.startsWith('header_')) return;
+                    setState(() => _selectedToId = val);
+                  },
+                  decoration: const InputDecoration(labelText: 'Hedef Hesap veya Birikim'),
+                  hint: const Text('Hedef Seçiniz'),
+                  validator: (val) => (val == null || val.startsWith('header_')) ? 'Hedef seçiniz' : null,
+                ),
+              ],
+              
               const SizedBox(height: 16),
 
-              // Tekrarlayan İşlem
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Tekrarlayan İşlem'),
@@ -280,7 +564,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
               ),
               if (_isRecurring)
                 DropdownButtonFormField<String>(
-                  initialValue: _recurringFrequency,
+                  value: _recurringFrequency,
                   items: _recurringOptions.map((opt) {
                      String text = '';
                      switch(opt){
@@ -304,9 +588,66 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                   onPressed: _saveTransaction,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    shadowColor: Colors.black.withValues(alpha: 0.3),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Konum Ekleme Bölümü
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Konum Ekle'),
+                      subtitle: const Text('Harcama yapılan konumu kaydet'),
+                      secondary: const Icon(Icons.location_on_outlined),
+                      value: _addLocation,
+                      onChanged: _handleLocation,
+                    ),
+                    if (_addLocation)
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.gps_fixed, size: 16, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _lat != null ? 'Konum: ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}' : 'Konum alınıyor...',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () async {
+                                final result = await Navigator.push<LatLng>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => LocationPickerScreen(
+                                      initialLocation: _lat != null ? LatLng(_lat!, _lng!) : null,
+                                    ),
+                                  ),
+                                );
+                                if (result != null) {
+                                  setState(() {
+                                    _lat = result.latitude;
+                                    _lng = result.longitude;
+                                  });
+                                }
+                              },
+                              icon: const Icon(Icons.edit_location_alt, size: 16),
+                              label: const Text('Haritada Seç', style: TextStyle(fontSize: 12)),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),

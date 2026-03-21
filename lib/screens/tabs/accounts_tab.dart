@@ -92,23 +92,49 @@ class AccountsTab extends ConsumerWidget {
                                   child: Text(acc.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                 ),
                               ),
-                              Text(acc.type.toUpperCase(), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              Text(AppUtils.getAccountTypeLabel(acc.type), style: const TextStyle(fontSize: 12, color: Colors.grey)),
                             ],
                           ),
                         ),
-                        Hero(
-                          tag: 'acc_balance_${acc.id}',
-                          child: Material(
-                            color: Colors.transparent,
-                            child: Text(
-                              AppUtils.formatCurrency(acc.balance, currency: acc.currency),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: isPositive ? Colors.green : Colors.red,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Hero(
+                              tag: 'acc_balance_${acc.id}',
+                              child: Material(
+                                color: Colors.transparent,
+                                child: Text(
+                                  AppUtils.formatCurrency(acc.balance, currency: acc.currency),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: isPositive ? Colors.green : Colors.red,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert, size: 20, color: Colors.grey),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (c) => AddAccountModal(account: acc),
+                                  );
+                                } else if (value == 'delete') {
+                                  _confirmDelete(context, ref, acc);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                const PopupMenuItem(value: 'delete', child: Text('Sil', style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -117,5 +143,29 @@ class AccountsTab extends ConsumerWidget {
               );
             },
           );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, dynamic acc) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hesabı Sil'),
+        content: Text('${acc.name} hesabını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          ElevatedButton(
+            onPressed: () {
+              ref.read(accountProvider.notifier).deleteAccount(acc.id);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Hesap silindi')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
   }
 }

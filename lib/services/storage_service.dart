@@ -6,6 +6,8 @@ import '../models/loan.dart';
 import '../models/transfer.dart';
 import '../models/budget.dart';
 import '../models/goal.dart';
+import '../models/subscription.dart';
+import '../models/exchange_rate.dart';
 
 class StorageService {
   static Future<void> init() async {
@@ -19,8 +21,11 @@ class StorageService {
     Hive.registerAdapter(TransferAdapter()); // 4
     Hive.registerAdapter(BudgetAdapter()); // 5
     Hive.registerAdapter(GoalAdapter()); // 6
+    Hive.registerAdapter(SubscriptionAdapter()); // 7
+    Hive.registerAdapter(ExchangeRateAdapter()); // 8
     
     // Open Boxes
+    await Hive.openBox('settings');
     await Hive.openBox<Account>('accounts');
     await Hive.openBox<trx.Transaction>('transactions');
     await Hive.openBox<CreditCard>('credit_cards');
@@ -28,6 +33,19 @@ class StorageService {
     await Hive.openBox<Transfer>('transfers');
     await Hive.openBox<Budget>('budgets');
     await Hive.openBox<Goal>('goals');
+    await Hive.openBox<Subscription>('subscriptions');
+    await Hive.openBox<ExchangeRate>('exchange_rates');
+  }
+
+  // ==== SETTINGS OPERATIONS ====
+  static Box get settingsBox => Hive.box('settings');
+  
+  static bool isOnboardingCompleted() {
+    return settingsBox.get('onboarding_completed', defaultValue: false);
+  }
+
+  static Future<void> setOnboardingCompleted(bool value) async {
+    await settingsBox.put('onboarding_completed', value);
   }
 
   // ==== ACCOUNT OPERATIONS ====
@@ -98,4 +116,23 @@ class StorageService {
   static List<Transfer> getTransfers() => transferBox.values.toList();
   
   static void addTransfer(Transfer transfer) => transferBox.put(transfer.id, transfer);
+
+  // ==== SUBSCRIPTION OPERATIONS ====
+  static Box<Subscription> get subscriptionBox => Hive.box<Subscription>('subscriptions');
+  
+  static List<Subscription> getSubscriptions() => subscriptionBox.values.toList();
+  
+  static void addSubscription(Subscription subscription) => subscriptionBox.put(subscription.id, subscription);
+  
+  static void updateSubscription(Subscription subscription) => subscriptionBox.put(subscription.id, subscription);
+  
+  static void deleteSubscription(String id) => subscriptionBox.delete(id);
+
+  // ==== EXCHANGE RATE OPERATIONS ====
+  static Box<ExchangeRate> get exchangeRateBox => Hive.box<ExchangeRate>('exchange_rates');
+  
+  static List<ExchangeRate> getExchangeRates() => exchangeRateBox.values.toList();
+  
+  static void updateExchangeRate(ExchangeRate rate) => exchangeRateBox.put(rate.code, rate);
 }
+

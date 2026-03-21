@@ -52,6 +52,12 @@ class Transaction extends HiveObject {
   @HiveField(15)
   DateTime updatedAt;
 
+  @HiveField(16)
+  String? toAccountId;
+
+  @HiveField(17)
+  String? toGoalId;
+
   Transaction({
     required this.id,
     required this.userId,
@@ -67,6 +73,8 @@ class Transaction extends HiveObject {
     this.locationLng,
     required this.accountId,
     this.creditCardId,
+    this.toAccountId,
+    this.toGoalId,
     required this.createdAt,
     required this.updatedAt,
   });

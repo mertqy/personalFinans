@@ -7,6 +7,8 @@ import 'payments_screen.dart';
 import 'budget_screen.dart';
 import '../widgets/transaction_modal.dart';
 
+import '../providers/navigation_provider.dart';
+
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -15,28 +17,30 @@ class MainScreen extends ConsumerStatefulWidget {
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
-  int _currentIndex = 0;
   final PageController _pageController = PageController();
 
+  // Actual pages — NO placeholder for FAB
   final List<Widget> _pages = [
-    const DashboardScreen(),
-    const BudgetScreen(),
-    const SizedBox.shrink(), // Placeholder for Add button (FAB)
-    const PaymentsScreen(),
-    const StatisticsScreen(),
+    const DashboardScreen(),   // tab 0 → page 0
+    const BudgetScreen(),      // tab 1 → page 1
+    const PaymentsScreen(),    // tab 3 → page 2
+    const StatisticsScreen(),  // tab 4 → page 3
   ];
+
+  // Map tab index → page index (skipping tab 2 which is FAB)
+  int _tabToPage(int tabIndex) {
+    if (tabIndex < 2) return tabIndex;
+    return tabIndex - 1; // tab 3→page 2, tab 4→page 3
+  }
 
   void _onTabTapped(int index) {
     if (index == 2) {
-      // FAB (Ekle) butonuna tıklandığında Modal açılacak
       _showAddTransactionModal();
       return;
     }
     
-    setState(() {
-      _currentIndex = index;
-    });
-    _pageController.jumpToPage(index);
+    ref.read(navigationProvider.notifier).state = index;
+    _pageController.jumpToPage(_tabToPage(index));
   }
 
   void _showAddTransactionModal() {
@@ -50,10 +54,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentTabIndex = ref.watch(navigationProvider);
+
+    // Listen for navigation changes to update PageController
+    ref.listen(navigationProvider, (previous, next) {
+      if (next != 2 && _pageController.hasClients) {
+        _pageController.jumpToPage(_tabToPage(next));
+      }
+    });
+
     return Scaffold(
       body: PageView(
         controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(), // Kaydırarak geçişi kapat
+        physics: const NeverScrollableScrollPhysics(),
         children: _pages,
       ),
       floatingActionButton: FloatingActionButton(
@@ -64,47 +77,45 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0,
-        clipBehavior: Clip.antiAlias,
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-          showSelectedLabels: true,
-          showUnselectedLabels: true,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Ana Sayfa',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.pie_chart_outline),
-              activeIcon: Icon(Icons.pie_chart),
-              label: 'Bütçe',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.add, color: Colors.transparent),
-              label: '', // Boşluk (FAB için)
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Hesaplar',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_outlined),
-              activeIcon: Icon(Icons.bar_chart),
-              label: 'İstatistik',
-            ),
-          ],
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: currentTabIndex,
+        onTap: _onTabTapped,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Ana Sayfa',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.pie_chart_outline),
+            activeIcon: Icon(Icons.pie_chart),
+            label: 'Bütçe',
+          ),
+          BottomNavigationBarItem(
+            icon: SizedBox(height: 20),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            activeIcon: Icon(Icons.account_balance_wallet),
+            label: 'Hesaplar',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart_outlined),
+            activeIcon: Icon(Icons.bar_chart),
+            label: 'İstatistik',
+          ),
+        ],
       ),
     );
   }
 }
+

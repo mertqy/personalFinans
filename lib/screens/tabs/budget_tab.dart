@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/account_provider.dart';
+import '../../providers/credit_card_provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../core/utils.dart';
+import '../../widgets/add_budget_modal.dart';
 
 class BudgetTab extends ConsumerWidget {
   const BudgetTab({super.key});
@@ -11,6 +14,8 @@ class BudgetTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final budgets = ref.watch(budgetProvider);
     final transactions = ref.watch(transactionProvider);
+    final accounts = ref.watch(accountProvider);
+    final creditCards = ref.watch(creditCardProvider);
 
     return budgets.isEmpty
         ? Center(
@@ -22,7 +27,14 @@ class BudgetTab extends ConsumerWidget {
                 const Text('Henüz bir bütçe oluşturmadınız.', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (c) => const AddBudgetModal(),
+                    );
+                  },
                   icon: const Icon(Icons.add),
                   label: const Text('Bütçe Ekle'),
                 ),
@@ -37,7 +49,14 @@ class BudgetTab extends ConsumerWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (c) => const AddBudgetModal(),
+                      );
+                    },
                     icon: const Icon(Icons.add),
                     label: const Text('Yeni Bütçe Ekle'),
                   ),
@@ -51,7 +70,20 @@ class BudgetTab extends ConsumerWidget {
                   .where((tx) => tx.type == 'expense' && tx.category == budget.categoryId)
                   // Not: Basitleştirilmiş tarih kontrolü (mevcut ay)
                   .where((tx) => tx.date.month == DateTime.now().month && tx.date.year == DateTime.now().year)
-                  .fold(0.0, (sum, tx) => sum + tx.amount);
+                  .fold(0.0, (sum, tx) {
+                    String currency = 'TRY';
+                    if (tx.accountId.isNotEmpty) {
+                      final acc = accounts.where((a) => a.id == tx.accountId).firstOrNull;
+                      if (acc != null) currency = acc.currency;
+                    } else if (tx.creditCardId != null) {
+                      final card = creditCards.where((c) => c.id == tx.creditCardId).firstOrNull;
+                      if (card != null) {
+                        final acc = accounts.where((a) => a.id == card.accountId).firstOrNull;
+                        if (acc != null) currency = acc.currency;
+                      }
+                    }
+                    return sum + AppUtils.convertToBaseCurrency(tx.amount, currency, 'TRY');
+                  });
 
               final progress = spentAmount / (budget.amount == 0 ? 1 : budget.amount);
               final isOverBudget = progress > 1.0;
@@ -67,7 +99,14 @@ class BudgetTab extends ConsumerWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(budget.categoryId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Row(
+                            children: [
+                              Text(AppUtils.getCategoryIcon(budget.categoryId), style: const TextStyle(fontSize: 20)),
+                              const SizedBox(width: 8),
+                              Text(AppUtils.getCategoryName(budget.categoryId), 
+                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            ],
+                          ),
                           Text(
                             AppUtils.formatCurrency(budget.amount),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

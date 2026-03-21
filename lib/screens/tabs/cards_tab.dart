@@ -82,7 +82,33 @@ class CardsTab extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(card.bank, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        const Icon(Icons.credit_card, color: Colors.white),
+                        Row(
+                          children: [
+                            const Icon(Icons.credit_card, color: Colors.white),
+                            const SizedBox(width: 8),
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert, size: 20, color: Colors.white70),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (c) => AddCardModal(card: card),
+                                  );
+                                } else if (value == 'delete') {
+                                  _confirmDelete(context, ref, card);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                const PopupMenuItem(value: 'delete', child: Text('Sil', style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -120,5 +146,29 @@ class CardsTab extends ConsumerWidget {
               );
             },
           );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, dynamic card) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kartı Sil'),
+        content: Text('${card.name} kartını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          ElevatedButton(
+            onPressed: () {
+              ref.read(creditCardProvider.notifier).deleteCard(card.id);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Kart silindi')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
   }
 }

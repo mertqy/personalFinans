@@ -23,10 +23,10 @@ class AppConstants {
 
   static const Map<String, Map<String, String>> currencies = {
     'TRY': {'symbol': '₺', 'name': 'Türk Lirası'},
-    'USD': {'symbol': '\$', 'name': 'US Dollar'},
+    'USD': {'symbol': '\$', 'name': 'Amerikan Doları'},
     'EUR': {'symbol': '€', 'name': 'Euro'},
-    'GBP': {'symbol': '£', 'name': 'British Pound'},
-    'GOLD': {'symbol': 'Au', 'name': 'Altın (Gram)'},
+    'GBP': {'symbol': '£', 'name': 'İngiliz Sterlini'},
+    'GOLD': {'symbol': 'gr', 'name': 'Altın (Gram)'},
   };
 
   static const String defaultCurrency = 'TRY';

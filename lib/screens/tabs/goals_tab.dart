@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/budget_provider.dart';
 import '../../core/utils.dart';
+import '../../widgets/add_goal_modal.dart';
 
 class GoalsTab extends ConsumerWidget {
   const GoalsTab({super.key});
@@ -20,7 +22,14 @@ class GoalsTab extends ConsumerWidget {
                 const Text('Henüz bir birikim hedefi oluşturmadınız.', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (c) => const AddGoalModal(),
+                    );
+                  },
                   icon: const Icon(Icons.add),
                   label: const Text('Hedef Ekle'),
                 ),
@@ -35,7 +44,14 @@ class GoalsTab extends ConsumerWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (c) => const AddGoalModal(),
+                      );
+                    },
                     icon: const Icon(Icons.add),
                     label: const Text('Yeni Hedef Ekle'),
                   ),
@@ -85,7 +101,7 @@ class GoalsTab extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('${AppUtils.formatCurrency(goal.currentAmount)} birikti', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                          Text('%${(progress * 100).toStringAsFixed(1)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text('%${NumberFormat('##0.0', 'tr_TR').format(progress * 100)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ],

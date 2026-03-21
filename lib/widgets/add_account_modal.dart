@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/account_provider.dart';
 import '../models/account.dart';
 import '../core/utils.dart';
+import '../core/formatters.dart';
 
 class AddAccountModal extends ConsumerStatefulWidget {
-  const AddAccountModal({super.key});
+  final Account? account;
+  const AddAccountModal({super.key, this.account});
 
   @override
   ConsumerState<AddAccountModal> createState() => _AddAccountModalState();
@@ -13,14 +16,30 @@ class AddAccountModal extends ConsumerStatefulWidget {
 
 class _AddAccountModalState extends ConsumerState<AddAccountModal> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _balanceController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _balanceController;
   
-  String _type = 'bank';
-  String _currency = 'TRY';
+  late String _selectedType;
+  late String _selectedCurrency;
 
-  final List<String> _types = ['cash', 'bank', 'savings', 'investment'];
+  final List<Map<String, String>> _types = [
+    {'value': 'cash', 'label': 'Nakit'},
+    {'value': 'bank', 'label': 'Banka'},
+    {'value': 'savings', 'label': 'Birikim'},
+    {'value': 'investment', 'label': 'Yatırım'},
+  ];
   final List<String> _currencies = ['TRY', 'USD', 'EUR', 'GBP', 'GOLD'];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.account?.name);
+    _balanceController = TextEditingController(
+      text: widget.account != null ? ThousandsSeparatorInputFormatter.format(widget.account!.balance) : '',
+    );
+    _selectedType = widget.account?.type ?? 'cash';
+    _selectedCurrency = widget.account?.currency ?? 'TRY';
+  }
 
   @override
   void dispose() {
@@ -31,30 +50,48 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
 
   void _save() {
     if (_formKey.currentState!.validate()) {
-      final amountStr = _balanceController.text.replaceAll(',', '.');
-      final amount = double.tryParse(amountStr) ?? 0.0;
+      final amount = ThousandsSeparatorInputFormatter.parse(_balanceController.text);
 
-      final account = Account(
-        id: AppUtils.generateId(),
-        userId: 'temp_user_id',
-        name: _nameController.text,
-        type: _type,
-        balance: amount,
-        currency: _currency,
-        color: '#64B5F6',
-        icon: 'wallet',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      ref.read(accountProvider.notifier).addAccount(account);
+      if (widget.account != null) {
+        // Düzenleme
+        final updatedAccount = widget.account!;
+        updatedAccount.name = _nameController.text;
+        updatedAccount.type = _selectedType;
+        updatedAccount.balance = amount;
+        updatedAccount.currency = _selectedCurrency;
+        updatedAccount.updatedAt = DateTime.now();
+        
+        ref.read(accountProvider.notifier).updateAccount(updatedAccount);
+      } else {
+        // Yeni Ekleme
+        final account = Account(
+          id: AppUtils.generateId(),
+          userId: 'temp_user_id',
+          name: _nameController.text,
+          type: _selectedType,
+          balance: amount,
+          currency: _selectedCurrency,
+          color: '#64B5F6',
+          icon: 'wallet',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        ref.read(accountProvider.notifier).addAccount(account);
+      }
+      
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.account != null;
+
     return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
         top: 24, left: 24, right: 24,
@@ -65,7 +102,13 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Yeni Hesap Ekle', style: Theme.of(context).textTheme.titleLarge),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(isEditing ? 'Hesabı Düzenle' : 'Yeni Hesap Ekle', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
@@ -74,9 +117,9 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              initialValue: _type,
-              items: _types.map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase()))).toList(),
-              onChanged: (val) => setState(() => _type = val!),
+              value: _selectedType,
+              items: _types.map((t) => DropdownMenuItem(value: t['value']!, child: Text(t['label']!))).toList(),
+              onChanged: (val) => setState(() => _selectedType = val!),
               decoration: const InputDecoration(labelText: 'Hesap Türü'),
             ),
             const SizedBox(height: 16),
@@ -86,11 +129,14 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
                   flex: 2,
                   child: TextFormField(
                     controller: _balanceController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Başlangıç Bakiyesi'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      ThousandsSeparatorInputFormatter(),
+                    ],
+                    decoration: const InputDecoration(labelText: 'Bakiye'),
                     validator: (val) {
                       if (val == null || val.isEmpty) return 'Gerekli';
-                      if (double.tryParse(val.replaceAll(',', '.')) == null) return 'Geçersiz';
                       return null;
                     },
                   ),
@@ -99,9 +145,18 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
                 Expanded(
                   flex: 1,
                   child: DropdownButtonFormField<String>(
-                    initialValue: _currency,
+                    value: _selectedCurrency,
                     items: _currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                    onChanged: (val) => setState(() => _currency = val!),
+                    onChanged: (val) {
+                      if (val != null && val != _selectedCurrency) {
+                        setState(() {
+                          final currentAmount = ThousandsSeparatorInputFormatter.parse(_balanceController.text);
+                          final convertedAmount = AppUtils.convertToBaseCurrency(currentAmount, _selectedCurrency, val);
+                          _balanceController.text = ThousandsSeparatorInputFormatter.format(convertedAmount);
+                          _selectedCurrency = val;
+                        });
+                      }
+                    },
                     decoration: const InputDecoration(labelText: 'Para Birimi'),
                   ),
                 ),
@@ -113,8 +168,11 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
               height: 50,
               child: ElevatedButton(
                 onPressed: _save,
-                style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
-                child: const Text('Kaydet', style: TextStyle(color: Colors.white, fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 24),

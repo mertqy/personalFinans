@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/loan_provider.dart';
 import '../../core/utils.dart';
 import '../../widgets/add_loan_modal.dart';
+import '../../providers/account_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../models/transaction.dart';
 
 class LoansTab extends ConsumerWidget {
   const LoansTab({super.key});
@@ -86,7 +89,33 @@ class LoansTab extends ConsumerWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text('Kalan Borç', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                              Row(
+                                children: [
+                                  const Text('Kalan Borç', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                  const SizedBox(width: 4),
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert, size: 20, color: Colors.grey),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          builder: (c) => AddLoanModal(loan: loan),
+                                        );
+                                      } else if (value == 'delete') {
+                                        _confirmDelete(context, ref, loan);
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                                      const PopupMenuItem(value: 'delete', child: Text('Sil', style: TextStyle(color: Colors.red))),
+                                    ],
+                                  ),
+                                ],
+                              ),
                               Text(AppUtils.formatCurrency(loan.remainingAmount), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
                             ],
                           ),
@@ -110,9 +139,7 @@ class LoansTab extends ConsumerWidget {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () {
-                            // Taksit öde
-                          },
+                          onPressed: () => _showPaymentConfirmation(context, ref, loan),
                           child: Text('Taksit Öde (${AppUtils.formatCurrency(loan.monthlyPayment)})'),
                         ),
                       )
@@ -122,5 +149,97 @@ class LoansTab extends ConsumerWidget {
               );
             },
           );
+  }
+
+  void _showPaymentConfirmation(BuildContext context, WidgetRef ref, dynamic loan) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Taksit Ödemesi'),
+        content: Text('${loan.name} için ${AppUtils.formatCurrency(loan.monthlyPayment)} tutarındaki taksit ödemesini onaylıyor musunuz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          ElevatedButton(
+            onPressed: () {
+              final amount = loan.monthlyPayment;
+              final accounts = ref.read(accountProvider);
+              final account = accounts.where((a) => a.id == loan.accountId).firstOrNull;
+
+              if (account != null && account.balance < amount) {
+                Navigator.pop(context); // Close confirmation
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('Yetersiz Bakiye'),
+                      ],
+                    ),
+                    content: Text('${account.name} hesabında bu ödeme için yeterli bakiye bulunmuyor.\n\nEksik olan tutar: ${AppUtils.formatCurrency(amount - account.balance)}'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Anladım')),
+                    ],
+                  ),
+                );
+                return;
+              }
+
+              // 1. İşlem kaydı oluştur (Notifier balances automatically via _applyEffect)
+              final tx = Transaction(
+                id: AppUtils.generateId(),
+                userId: 'temp_user_id',
+                type: 'expense',
+                amount: amount,
+                category: 'Borç Ödemesi',
+                description: '${loan.name} Kredi Taksiti',
+                date: DateTime.now(),
+                isPlanned: false,
+                accountId: loan.accountId,
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              );
+              ref.read(transactionProvider.notifier).addTransaction(tx);
+
+              // 2. Kredi kalan tutarını güncelle
+              loan.remainingAmount -= amount;
+              loan.updatedAt = DateTime.now();
+              ref.read(loanProvider.notifier).updateLoan(loan);
+
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Taksit ödemesi başarıyla yapıldı.')),
+              );
+            },
+            child: const Text('Öde'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, dynamic loan) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Krediyi Sil'),
+        content: Text('${loan.name} kredisini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          ElevatedButton(
+            onPressed: () {
+              ref.read(loanProvider.notifier).deleteLoan(loan.id);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Kredi silindi')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
   }
 }

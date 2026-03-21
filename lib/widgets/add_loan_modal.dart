@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/loan_provider.dart';
 import '../providers/account_provider.dart';
 import '../models/loan.dart';
 import '../core/utils.dart';
+import '../core/formatters.dart';
 
 class AddLoanModal extends ConsumerStatefulWidget {
-  const AddLoanModal({super.key});
+  final Loan? loan;
+  const AddLoanModal({super.key, this.loan});
 
   @override
   ConsumerState<AddLoanModal> createState() => _AddLoanModalState();
@@ -14,11 +17,70 @@ class AddLoanModal extends ConsumerStatefulWidget {
 
 class _AddLoanModalState extends ConsumerState<AddLoanModal> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _bankController = TextEditingController();
-  final _totalController = TextEditingController();
-  final _paymentController = TextEditingController();
+  late final TextEditingController _totalController;
+  late final TextEditingController _paymentController;
+  late final TextEditingController _interestController;
+  late final TextEditingController _durationController;
+  String? _selectedName;
   String? _selectedAccountId;
+  double _totalRepayment = 0.0;
+
+  final List<String> _loanNames = ['İhtiyaç', 'Araç', 'Konut'];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedName = widget.loan?.name;
+    if (_selectedName == null && widget.loan == null) _selectedName = _loanNames.first;
+    
+    _totalController = TextEditingController(
+      text: widget.loan != null ? ThousandsSeparatorInputFormatter.format(widget.loan!.totalAmount) : '',
+    );
+    _paymentController = TextEditingController(
+      text: widget.loan != null ? ThousandsSeparatorInputFormatter.format(widget.loan!.monthlyPayment) : '',
+    );
+    _interestController = TextEditingController(text: widget.loan?.interestRate.toString() ?? '');
+    _durationController = TextEditingController(text: '12'); // Default 12 months
+    _selectedAccountId = widget.loan?.accountId;
+
+    if (widget.loan != null) {
+      _totalRepayment = widget.loan!.totalAmount;
+      // Estimate duration if possible, or keep default
+    }
+
+    _totalController.addListener(_calculate);
+    _interestController.addListener(_calculate);
+    _durationController.addListener(_calculate);
+  }
+
+  @override
+  void dispose() {
+    _totalController.dispose();
+    _paymentController.dispose();
+    _interestController.dispose();
+    _durationController.dispose();
+    super.dispose();
+  }
+
+  void _calculate() {
+    final amount = ThousandsSeparatorInputFormatter.parse(_totalController.text);
+    final interestRate = double.tryParse(_interestController.text.replaceAll(',', '.')) ?? 0;
+    final months = int.tryParse(_durationController.text) ?? 0;
+
+    if (months > 0) {
+      // Simple Loan Calculation: Total = Principal + Interest(flat)
+      // Note: Interest rate is assumed as total percentage for simplicity, or we can use monthly.
+      // Let's use a simple flat rate approach common in quick calculators:
+      // Total Repayment = Amount * (1 + interestRate/100)
+      final total = amount + (amount * (interestRate / 100));
+      final monthly = total / months;
+      
+      setState(() {
+        _totalRepayment = total;
+        _paymentController.text = ThousandsSeparatorInputFormatter.format(monthly);
+      });
+    }
+  }
 
   void _save() {
     if (_formKey.currentState!.validate()) {
@@ -27,38 +89,59 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
         return;
       }
       
-      final totalStr = _totalController.text.replaceAll(',', '.');
-      final total = double.tryParse(totalStr) ?? 0.0;
+      final payment = ThousandsSeparatorInputFormatter.parse(_paymentController.text);
+      final interest = double.tryParse(_interestController.text.replaceAll(',', '.')) ?? 0.0;
+
+      final accounts = ref.read(accountProvider);
+      final selectedAccount = accounts.firstWhere((acc) => acc.id == _selectedAccountId);
+
+      if (widget.loan != null) {
+        // Edit
+        final updatedLoan = widget.loan!;
+        updatedLoan.name = _selectedName!;
+        updatedLoan.bank = selectedAccount.name;
+        updatedLoan.totalAmount = _totalRepayment;
+        updatedLoan.monthlyPayment = payment;
+        updatedLoan.interestRate = interest;
+        updatedLoan.accountId = _selectedAccountId!;
+        updatedLoan.updatedAt = DateTime.now();
+        
+        ref.read(loanProvider.notifier).updateLoan(updatedLoan);
+      } else {
+        // Add
+        final loan = Loan(
+          id: AppUtils.generateId(),
+          name: _selectedName!,
+          bank: selectedAccount.name,
+          type: _selectedName == 'Araç' ? 'auto' : (_selectedName == 'Konut' ? 'mortgage' : 'personal'),
+          accountId: _selectedAccountId!,
+          totalAmount: _totalRepayment,
+          remainingAmount: _totalRepayment,
+          monthlyPayment: payment,
+          interestRate: interest,
+          startDate: DateTime.now(),
+          endDate: DateTime.now().add(Duration(days: (int.tryParse(_durationController.text) ?? 12) * 30)), 
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        ref.read(loanProvider.notifier).addLoan(loan);
+      }
       
-      final paymentStr = _paymentController.text.replaceAll(',', '.');
-      final payment = double.tryParse(paymentStr) ?? 0.0;
-
-      final loan = Loan(
-        id: AppUtils.generateId(),
-        name: _nameController.text,
-        bank: _bankController.text,
-        type: 'consumer',
-        accountId: _selectedAccountId!,
-        totalAmount: total,
-        remainingAmount: total,
-        monthlyPayment: payment,
-        interestRate: 0.0,
-        startDate: DateTime.now(),
-        endDate: DateTime.now().add(const Duration(days: 365)), // Varsayılan 1 yıl
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      ref.read(loanProvider.notifier).addLoan(loan);
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final accounts = ref.watch(accountProvider);
+    // Only bank accounts
+    final accounts = ref.watch(accountProvider).where((acc) => acc.type == 'bank').toList();
+    final isEditing = widget.loan != null;
     
     return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
         top: 24, left: 24, right: 24,
@@ -70,47 +153,116 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Yeni Kredi Ekle', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Kredi Adı (örn: İhtiyaç)'),
-                validator: (val) => val == null || val.isEmpty ? 'Gerekli' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _bankController,
-                decoration: const InputDecoration(labelText: 'Banka'),
-                validator: (val) => val == null || val.isEmpty ? 'Gerekli' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _totalController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Toplam Geri Ödeme Tutarı'),
-                validator: (val) {
-                  if (val == null || val.isEmpty) return 'Gerekli';
-                  if (double.tryParse(val.replaceAll(',', '.')) == null) return 'Geçersiz';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _paymentController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Aylık Taksit Tutarı'),
-                validator: (val) {
-                  if (val == null || val.isEmpty) return 'Gerekli';
-                  if (double.tryParse(val.replaceAll(',', '.')) == null) return 'Geçersiz';
-                  return null;
-                },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(isEditing ? 'Krediyi Düzenle' : 'Yeni Kredi Ekle', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                ],
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                initialValue: _selectedAccountId,
+                value: _loanNames.contains(_selectedName) ? _selectedName : null,
+                items: _loanNames.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
+                onChanged: (val) => setState(() => _selectedName = val),
+                decoration: const InputDecoration(labelText: 'Kredi Türü'),
+                validator: (val) => val == null ? 'Gerekli' : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: accounts.any((acc) => acc.id == _selectedAccountId) ? _selectedAccountId : null,
                 items: accounts.map((acc) => DropdownMenuItem(value: acc.id, child: Text('${acc.name} (${acc.currency})'))).toList(),
                 onChanged: (val) => setState(() => _selectedAccountId = val),
-                decoration: const InputDecoration(labelText: 'Ödemenin Yapılacağı Hesap'),
+                decoration: const InputDecoration(labelText: 'Bağlı Banka Hesabı'),
+                validator: (val) => val == null ? 'Gerekli' : null,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _totalController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        ThousandsSeparatorInputFormatter(),
+                      ],
+                      decoration: const InputDecoration(labelText: 'Kredi Tutarı', prefixText: '₺ '),
+                      validator: (val) {
+                        if (val == null || val.isEmpty) return 'Gerekli';
+                        if (double.tryParse(val.replaceAll(',', '.')) == null) return 'Geçersiz';
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _interestController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Toplam Faiz Oranı', suffixText: '%'),
+                      validator: (val) {
+                        if (val == null || val.isEmpty) return 'Gerekli';
+                        if (double.tryParse(val.replaceAll(',', '.')) == null) return 'Geçersiz';
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _durationController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Vade (Ay)', suffixText: 'Ay'),
+                      validator: (val) {
+                        if (val == null || val.isEmpty) return 'Gerekli';
+                        if (int.tryParse(val) == null) return 'Geçersiz';
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _paymentController,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Aylık Taksit',
+                        prefixText: '₺ ',
+                        filled: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Toplam Geri Ödeme:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      '₺ ${ThousandsSeparatorInputFormatter.format(_totalRepayment)}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -118,8 +270,11 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: _save,
-                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
-                  child: const Text('Kaydet', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 24),

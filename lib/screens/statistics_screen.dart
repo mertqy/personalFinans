@@ -1,57 +1,178 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:intl/intl.dart';
 import '../core/constants.dart';
+import '../providers/transaction_provider.dart';
+import '../providers/account_provider.dart';
+import '../providers/credit_card_provider.dart';
+import '../core/utils.dart';
 
-class StatisticsScreen extends StatefulWidget {
+class StatisticsScreen extends ConsumerStatefulWidget {
   const StatisticsScreen({super.key});
 
   @override
-  State<StatisticsScreen> createState() => _StatisticsScreenState();
+  ConsumerState<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
-class _StatisticsScreenState extends State<StatisticsScreen> {
-  int touchedIndex = -1;
+class _ChartData {
+  _ChartData(this.x, this.y, [this.color]);
+  final dynamic x;
+  final double y;
+  final Color? color;
+}
+
+class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
+  bool isExpenseView = true;
+  late TooltipBehavior _trendTooltip;
+  late TooltipBehavior _comparisonTooltip;
+  late TooltipBehavior _pieTooltip;
+
+  @override
+  void initState() {
+    _trendTooltip = TooltipBehavior(enable: true, format: 'point.x : ₺ point.y');
+    _comparisonTooltip = TooltipBehavior(enable: true, shared: true, format: '₺ point.y');
+    _pieTooltip = TooltipBehavior(enable: true, format: 'point.x : ₺ point.y');
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final transactions = ref.watch(transactionProvider);
+    final accounts = ref.watch(accountProvider);
+    final creditCards = ref.watch(creditCardProvider);
+    
+    final filteredTransactions = transactions
+        .where((t) => t.type == (isExpenseView ? 'expense' : 'income') && !t.isPlanned)
+        .toList();
+
+    String getTxCurrency(dynamic tx) {
+      if (tx.accountId.isNotEmpty) {
+        final acc = accounts.where((a) => a.id == tx.accountId).firstOrNull;
+        if (acc != null) return acc.currency;
+      } else if (tx.creditCardId != null) {
+        final card = creditCards.where((c) => c.id == tx.creditCardId).firstOrNull;
+        if (card != null) {
+          final acc = accounts.where((a) => a.id == card.accountId).firstOrNull;
+          if (acc != null) return acc.currency;
+        }
+      }
+      return 'TRY';
+    }
+    
+    // Group by category
+    final Map<String, double> categoryMap = {};
+    double totalAmount = 0;
+    for (var tx in filteredTransactions) {
+      final normalizedCategory = AppUtils.getCategoryById(tx.category)?['id'] ?? tx.category;
+      final convertedAmount = AppUtils.convertToBaseCurrency(tx.amount, getTxCurrency(tx), 'TRY');
+      categoryMap[normalizedCategory] = (categoryMap[normalizedCategory] ?? 0) + convertedAmount;
+      totalAmount += convertedAmount;
+    }
+
+    final sortedCategories = categoryMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Colors for pie chart
+    final chartColors = [
+      AppConstants.chartColors['PRIMARY']!,
+      AppConstants.chartColors['WARNING']!,
+      AppConstants.chartColors['INFO']!,
+      AppConstants.chartColors['PURPLE']!,
+      AppConstants.chartColors['SUCCESS']!,
+      AppConstants.chartColors['PINK']!,
+      AppConstants.chartColors['DANGER']!,
+    ];
+
+    final List<_ChartData> pieData = sortedCategories.asMap().entries.map((entry) {
+      final i = entry.key;
+      final e = entry.value;
+      return _ChartData(AppUtils.getCategoryName(e.key), e.value, chartColors[i % chartColors.length]);
+    }).toList();
+
+    // Data for Trend Chart (Last 7 days)
+    final now = DateTime.now();
+    final last7Days = List.generate(7, (index) {
+      final date = now.subtract(Duration(days: 6 - index));
+      return DateTime(date.year, date.month, date.day);
+    });
+
+    final List<_ChartData> trendData = last7Days.map((date) {
+      final dayTotal = filteredTransactions
+          .where((t) => t.date.year == date.year && t.date.month == date.month && t.date.day == date.day)
+          .fold(0.0, (sum, t) => sum + AppUtils.convertToBaseCurrency(t.amount, getTxCurrency(t), 'TRY'));
+      return _ChartData(DateFormat('E', 'tr_TR').format(date), dayTotal);
+    }).toList();
+
+    // Data for Monthly Comparison
+    final currentMonth = now.month;
+    final currentYear = now.year;
+    final prevMonthDate = DateTime(now.year, now.month - 1);
+    final prevMonth = prevMonthDate.month;
+    final prevYear = prevMonthDate.year;
+
+    final List<_ChartData> currentMonthData = List.generate(31, (index) {
+      final day = index + 1;
+      final dayTotal = filteredTransactions
+          .where((t) => t.date.year == currentYear && t.date.month == currentMonth && t.date.day == day)
+          .fold(0.0, (sum, t) => sum + AppUtils.convertToBaseCurrency(t.amount, getTxCurrency(t), 'TRY'));
+      return _ChartData(day, dayTotal);
+    });
+
+    final List<_ChartData> prevMonthData = List.generate(31, (index) {
+      final day = index + 1;
+      final dayTotal = filteredTransactions
+          .where((t) => t.date.year == prevYear && t.date.month == prevMonth && t.date.day == day)
+          .fold(0.0, (sum, t) => sum + AppUtils.convertToBaseCurrency(t.amount, getTxCurrency(t), 'TRY'));
+      return _ChartData(day, dayTotal);
+    });
+
+    final themeColor = isExpenseView 
+        ? Theme.of(context).colorScheme.primary 
+        : Colors.green;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('İstatistikler'),
-      ),
+      appBar: AppBar(title: const Text('İstatistikler')),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Harcama Dağılımı', style: Theme.of(context).textTheme.titleLarge),
+              _buildToggleControl(),
               const SizedBox(height: 24),
-              SizedBox(
-                height: 300,
-                child: PieChart(
-                  PieChartData(
-                    pieTouchData: PieTouchData(
-                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                        setState(() {
-                          if (!event.isInterestedForInteractions ||
-                              pieTouchResponse == null ||
-                              pieTouchResponse.touchedSection == null) {
-                            touchedIndex = -1;
-                            return;
-                          }
-                          touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                        });
-                      },
-                    ),
-                    borderData: FlBorderData(show: false),
-                    sectionsSpace: 0,
-                    centerSpaceRadius: 60,
-                    sections: showingSections(),
-                  ),
-                ),
-              ),
+
+              // Pie Chart
+              _buildSectionTitle(isExpenseView ? 'Kategori Bazlı Harcama' : 'Kategori Bazlı Gelir'),
+              const SizedBox(height: 16),
+              if (totalAmount > 0) ...[
+                _buildPieChart(pieData, totalAmount, themeColor),
+                const SizedBox(height: 16),
+                _buildCategoryList(sortedCategories, totalAmount, chartColors),
+              ] else 
+                _buildEmptyState(isExpenseView ? 'Harcama verisi bulunamadı' : 'Gelir verisi bulunamadı'),
+
+              const SizedBox(height: 40),
+
+              // Trend Chart
+              _buildSectionTitle('Son 7 Günlük Trend'),
+              const SizedBox(height: 16),
+              if (totalAmount > 0)
+                _buildTrendChart(trendData, themeColor)
+              else 
+                _buildEmptyState('Trend verisi yok'),
+              
+              const SizedBox(height: 40),
+
+              // Comparison Chart
+              _buildSectionTitle('Aylık Karşılaştırma'),
+              const SizedBox(height: 16),
+              if (totalAmount > 0)
+                _buildComparisonChart(currentMonthData, prevMonthData, themeColor)
+              else 
+                _buildEmptyState('Karşılaştırma verisi yok'),
+
               const SizedBox(height: 32),
-              ..._buildIndicators(),
             ],
           ),
         ),
@@ -59,83 +180,179 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  List<PieChartSectionData> showingSections() {
-    return List.generate(4, (i) {
-      final isTouched = i == touchedIndex;
-      final fontSize = isTouched ? 20.0 : 16.0;
-      final radius = isTouched ? 70.0 : 60.0;
-      const shadows = [Shadow(color: Colors.black, blurRadius: 2)];
-
-      switch (i) {
-        case 0:
-          return PieChartSectionData(
-            color: AppConstants.chartColors['PRIMARY']!,
-            value: 40,
-            title: '40%',
-            radius: radius,
-            titleStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: Colors.white, shadows: shadows),
-          );
-        case 1:
-          return PieChartSectionData(
-            color: AppConstants.chartColors['WARNING']!,
-            value: 30,
-            title: '30%',
-            radius: radius,
-            titleStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: Colors.white, shadows: shadows),
-          );
-        case 2:
-          return PieChartSectionData(
-            color: AppConstants.chartColors['INFO']!,
-            value: 15,
-            title: '15%',
-            radius: radius,
-            titleStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: Colors.white, shadows: shadows),
-          );
-        case 3:
-          return PieChartSectionData(
-            color: AppConstants.chartColors['PURPLE']!,
-            value: 15,
-            title: '15%',
-            radius: radius,
-            titleStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: Colors.white, shadows: shadows),
-          );
-        default:
-          throw Error();
-      }
-    });
+  Widget _buildToggleControl() {
+    return Center(
+      child: SegmentedButton<bool>(
+        segments: const [
+          ButtonSegment(value: true, label: Text('Giderler'), icon: Icon(Icons.outbound)),
+          ButtonSegment(value: false, label: Text('Gelirler'), icon: Icon(Icons.move_to_inbox)),
+        ],
+        selected: {isExpenseView},
+        onSelectionChanged: (newSelection) => setState(() => isExpenseView = newSelection.first),
+      ),
+    );
   }
 
-  List<Widget> _buildIndicators() {
-    return [
-      _Indicator(color: AppConstants.chartColors['PRIMARY']!, text: 'Yiyecek & İçecek'),
-      const SizedBox(height: 8),
-      _Indicator(color: AppConstants.chartColors['WARNING']!, text: 'Market'),
-      const SizedBox(height: 8),
-      _Indicator(color: AppConstants.chartColors['INFO']!, text: 'Ulaşım'),
-      const SizedBox(height: 8),
-      _Indicator(color: AppConstants.chartColors['PURPLE']!, text: 'Fatura'),
-    ];
+  Widget _buildPieChart(List<_ChartData> data, double total, Color centerColor) {
+    return SizedBox(
+      height: 250,
+      child: SfCircularChart(
+        tooltipBehavior: _pieTooltip,
+        annotations: <CircularChartAnnotation>[
+          CircularChartAnnotation(
+            widget: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Toplam', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text(
+                  AppUtils.formatCurrency(total),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: centerColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        series: <CircularSeries<_ChartData, String>>[
+          DoughnutSeries<_ChartData, String>(
+            dataSource: data.take(7).toList(),
+            xValueMapper: (_ChartData d, _) => d.x as String,
+            yValueMapper: (_ChartData d, _) => d.y,
+            pointColorMapper: (_ChartData d, _) => d.color,
+            innerRadius: '70%',
+            radius: '100%',
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              labelPosition: ChartDataLabelPosition.outside,
+              textStyle: TextStyle(fontSize: 10),
+            ),
+            enableTooltip: true,
+          ),
+        ],
+      ),
+    );
   }
-}
 
-class _Indicator extends StatelessWidget {
-  const _Indicator({required this.color, required this.text});
-
-  final Color color;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+  Widget _buildTrendChart(List<_ChartData> data, Color color) {
+    return SizedBox(
+      height: 220,
+      child: SfCartesianChart(
+        primaryXAxis: const CategoryAxis(
+          majorGridLines: MajorGridLines(width: 0),
+          labelStyle: TextStyle(fontSize: 10),
         ),
-        const SizedBox(width: 8),
-        Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      ],
+        primaryYAxis: const NumericAxis(
+          minimum: 0,
+          majorGridLines: MajorGridLines(dashArray: [5, 5]),
+          labelStyle: TextStyle(fontSize: 10),
+        ),
+        tooltipBehavior: _trendTooltip,
+        series: <CartesianSeries<_ChartData, String>>[
+          SplineAreaSeries<_ChartData, String>(
+            dataSource: data,
+            xValueMapper: (_ChartData d, _) => d.x as String,
+            yValueMapper: (_ChartData d, _) => d.y,
+            color: color.withValues(alpha: 0.1),
+            borderColor: color,
+            borderWidth: 3,
+            markerSettings: MarkerSettings(
+              isVisible: true,
+              height: 4,
+              width: 4,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComparisonChart(List<_ChartData> current, List<_ChartData> prev, Color color) {
+    return SizedBox(
+      height: 220,
+      child: SfCartesianChart(
+        legend: const Legend(isVisible: true, position: LegendPosition.top),
+        primaryXAxis: const NumericAxis(
+          majorGridLines: MajorGridLines(width: 0),
+          interval: 5,
+          labelStyle: TextStyle(fontSize: 10),
+        ),
+        primaryYAxis: const NumericAxis(
+          minimum: 0,
+          majorGridLines: MajorGridLines(dashArray: [5, 5]),
+          labelStyle: TextStyle(fontSize: 10),
+        ),
+        tooltipBehavior: _comparisonTooltip,
+        series: <CartesianSeries<_ChartData, num>>[
+          SplineSeries<_ChartData, num>(
+            name: 'Bu Ay',
+            dataSource: current,
+            xValueMapper: (_ChartData d, _) => d.x as num,
+            yValueMapper: (_ChartData d, _) => d.y,
+            color: color,
+            width: 3,
+          ),
+          SplineSeries<_ChartData, num>(
+            name: 'Geçen Ay',
+            dataSource: prev,
+            xValueMapper: (_ChartData d, _) => d.x as num,
+            yValueMapper: (_ChartData d, _) => d.y,
+            color: Colors.grey.withValues(alpha: 0.4),
+            width: 2,
+            dashArray: const [5, 5],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryList(List<MapEntry<String, double>> categories, double total, List<Color> colors) {
+    return Column(
+      children: List.generate(categories.length > 7 ? 7 : categories.length, (i) {
+        final category = categories[i];
+        final percentage = (category.value / total) * 100;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0),
+          child: Row(
+            children: [
+              Container(
+                width: 10, height: 10,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: colors[i % colors.length]),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(AppUtils.getCategoryName(category.key), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              ),
+              Text('%${NumberFormat('##0.0', 'tr_TR').format(percentage)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(width: 15),
+              Text(AppUtils.formatCurrency(category.value), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 0.3));
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Column(
+          children: [
+            Icon(Icons.pie_chart_outline, size: 40, color: Colors.grey.withValues(alpha: 0.3)),
+            const SizedBox(height: 12),
+            Text(message, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          ],
+        ),
+      ),
     );
   }
 }
+
