@@ -5,6 +5,7 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_finans/main.dart';
 import 'package:personal_finans/screens/main_screen.dart';
@@ -34,20 +35,34 @@ void main() {
       return 'wifi';
     });
 
+    // Initialize Hive for tests
     await Hive.initFlutter('test_boxes');
     await StorageService.init();
   });
 
+  tearDownAll(() async {
+    await Hive.close();
+  });
+
   testWidgets('App smoke test', (WidgetTester tester) async {
+    // Suppress font loading errors in tests and fix missing await
+    await tester.binding.setSurfaceSize(const Size(1080, 1920));
+
     // Build our app and trigger a frame.
-    // Wrap with ProviderScope which is required by our app
     await tester.pumpWidget(
-      const ProviderScope(
-        child: PersonalFinansApp(showOnboarding: false),
+      ProviderScope(
+        child: PersonalFinansApp(
+          showOnboarding: false,
+          theme: ThemeData.dark(),
+        ),
       ),
     );
 
-    // Verify that the MainScreen exists
+    // Initial pump to load the first frame
+    await tester.pump();
+    
+    // We might need to wait for animations or async logic
+    // But for a smoke test, finding the MainScreen is enough
     expect(find.byType(MainScreen), findsOneWidget);
   });
 }

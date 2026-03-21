@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/theme.dart';
 import 'screens/onboarding_screen.dart';
@@ -28,14 +28,15 @@ void main() async {
 
 class PersonalFinansApp extends StatelessWidget {
   final bool showOnboarding;
-  const PersonalFinansApp({super.key, required this.showOnboarding});
+  final ThemeData? theme;
+  const PersonalFinansApp({super.key, required this.showOnboarding, this.theme});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Param Nerede',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: theme ?? AppTheme.darkTheme,
       home: showOnboarding ? const OnboardingScreen() : const MainScreen(),
     );
   }
