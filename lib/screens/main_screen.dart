@@ -8,6 +8,8 @@ import 'budget_screen.dart';
 
 import '../providers/navigation_provider.dart';
 
+import 'package:animations/animations.dart';
+
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -16,36 +18,33 @@ class MainScreen extends ConsumerStatefulWidget {
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
-  final PageController _pageController = PageController();
-
-  final List<Widget> _pages = [
-    const DashboardScreen(),
-    const BudgetScreen(),
-    const PaymentsScreen(),
-    const StatisticsScreen(),
-  ];
-
   void _onTabTapped(int index) {
     ref.read(navigationProvider.notifier).state = index;
-    _pageController.jumpToPage(index);
   }
 
   @override
   Widget build(BuildContext context) {
     final currentTabIndex = ref.watch(navigationProvider);
 
-    // Listen for navigation changes to update PageController
-    ref.listen(navigationProvider, (previous, next) {
-      if (_pageController.hasClients) {
-        _pageController.jumpToPage(next);
-      }
-    });
+    final List<Widget> _pages = [
+      const DashboardScreen(),
+      const BudgetScreen(),
+      const PaymentsScreen(),
+      const StatisticsScreen(),
+    ];
 
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: _pages,
+      body: PageTransitionSwitcher(
+        duration: const Duration(milliseconds: 400),
+        reverse: false,
+        transitionBuilder: (child, primaryAnimation, secondaryAnimation) {
+          return FadeThroughTransition(
+            animation: primaryAnimation,
+            secondaryAnimation: secondaryAnimation,
+            child: child,
+          );
+        },
+        child: _pages[currentTabIndex > 3 ? 0 : currentTabIndex],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentTabIndex > 3 ? 3 : currentTabIndex, // bounds check if returning from previous 5 tab layout

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/services.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
@@ -16,14 +16,34 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
     // Kullanıcı talebi binlik ayracı (nokta) olduğu için TR formatında binlik nokta, ondalık virgüldür.
     // Şimdilik tam sayı gibi binlik ayracı ekleyelim.
     
-    String cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    // Ondalık ayracı desteği ekleyelim (TR formatında virgül)
+    String cleanText = newValue.text.replaceAll(RegExp(r'[^0-9,]'), '');
     
+    // Birden fazla virgül varsa sadece ilkini tut
+    if (cleanText.contains(',')) {
+      final parts = cleanText.split(',');
+      cleanText = '${parts[0]},${parts.sublist(1).join('')}';
+    }
+
     if (cleanText.isEmpty) {
       return newValue.copyWith(text: '', selection: const TextSelection.collapsed(offset: 0));
     }
 
-    double value = double.parse(cleanText);
-    String formattedText = _formatter.format(value);
+    // Virgüllü kısmı korumak için double.parse yerine metin manipülasyonu kullanalım
+    String formattedText;
+    final commaIndex = cleanText.indexOf(',');
+    
+    if (commaIndex != -1) {
+      final beforeComma = cleanText.substring(0, commaIndex);
+      final afterComma = cleanText.substring(commaIndex + 1);
+      
+      final double doubleValue = double.tryParse(beforeComma) ?? 0;
+      formattedText = _formatter.format(doubleValue);
+      formattedText = '$formattedText,$afterComma';
+    } else {
+      final double doubleValue = double.tryParse(cleanText) ?? 0;
+      formattedText = _formatter.format(doubleValue);
+    }
 
     return TextEditingValue(
       text: formattedText,
@@ -37,8 +57,9 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
     return double.tryParse(text.replaceAll('.', '').replaceAll(',', '.')) ?? 0.0;
   }
 
-  /// Bir sayıyı binlik ayracı (nokta) ile formatlar.
+  /// Bir sayıyı binlik ayracı (nokta) ve ondalık (virgül) ile formatlar.
   static String format(double value) {
-    return _formatter.format(value.floor()); // Tam sayı için yapıyoruz
+    // floor() kullanmıyoruz ki ondalık kısımlar kaybolmasın
+    return _formatter.format(value);
   }
 }

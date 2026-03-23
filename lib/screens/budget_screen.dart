@@ -14,6 +14,7 @@ import '../widgets/add_budget_modal.dart';
 import '../widgets/add_goal_modal.dart';
 import '../widgets/goal_success_dialog.dart';
 import '../core/formatters.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 // Custom Colors matching the design
 const _bgColor = Color(0xFF181A25);
@@ -112,7 +113,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                   ),
                 ),
               ],
-            ),
+            ).animate().fade(duration: 400.ms).slideX(begin: -0.1),
             const SizedBox(height: 12),
 
             // --- AYLIK HARCAMA CARDS ---

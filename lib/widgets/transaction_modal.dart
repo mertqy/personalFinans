@@ -13,6 +13,8 @@ import 'goal_success_dialog.dart';
 import 'package:geolocator/geolocator.dart';
 import '../screens/location_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:collection/collection.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class TransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
@@ -380,6 +382,7 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -703,9 +706,9 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            const SizedBox(height: 24),
+          ].animate(interval: 50.ms).fade(duration: 400.ms).slideY(begin: 0.1),
+        ),
         ),
       ),
     );

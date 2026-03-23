@@ -4,6 +4,7 @@ import '../../providers/account_provider.dart';
 import '../../core/utils.dart';
 import '../../widgets/add_account_modal.dart';
 import '../account_detail_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class AccountsTab extends ConsumerWidget {
   const AccountsTab({super.key});
@@ -156,7 +157,7 @@ class AccountsTab extends ConsumerWidget {
                     ),
                   ),
                 ),
-              );
+              ).animate().fade(duration: 400.ms).slideX(begin: 0.1);
             },
           );
   }

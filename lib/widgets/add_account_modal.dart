@@ -7,6 +7,7 @@ import '../models/account.dart';
 import '../models/transaction.dart';
 import '../core/utils.dart';
 import '../core/formatters.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class AddAccountModal extends ConsumerStatefulWidget {
   final Account? account;
@@ -71,7 +72,7 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
           userId: 'temp_user_id',
           name: _nameController.text,
           type: _selectedType,
-          balance: amount,
+          balance: 0,
           currency: _selectedCurrency,
           color: '#64B5F6',
           icon: 'wallet',
@@ -196,7 +197,7 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
               ),
             ),
             const SizedBox(height: 24),
-          ],
+          ].animate(interval: 50.ms).fade(duration: 400.ms).slideY(begin: 0.1),
         ),
       ),
     );

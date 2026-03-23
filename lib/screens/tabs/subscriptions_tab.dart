@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import '../../providers/subscription_provider.dart';
 import '../../providers/account_provider.dart';
+import '../../models/subscription.dart';
+import '../../models/account.dart';
 import '../../core/utils.dart';
 import '../../widgets/add_subscription_modal.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class SubscriptionsTab extends ConsumerWidget {
   const SubscriptionsTab({super.key});
@@ -118,8 +122,8 @@ class SubscriptionsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildSubscriptionCard(BuildContext context, WidgetRef ref, sub, accounts, {bool inactive = false}) {
-    final color = Color(int.parse(sub.color.replaceFirst('#', 'ff'), radix: 16));
+  Widget _buildSubscriptionCard(BuildContext context, WidgetRef ref, Subscription sub, List<Account> accounts, {bool inactive = false}) {
+    final color = AppUtils.hexToColor(sub.color);
     final subAccount = accounts.where((a) => a.id == sub.accountId).firstOrNull;
     final accountName = subAccount != null ? subAccount.name : '—';
 
@@ -232,7 +236,7 @@ class SubscriptionsTab extends ConsumerWidget {
             ),
           ],
         ),
-      ),
+      ).animate().fade(duration: 400.ms).slideX(begin: 0.1),
     );
   }
 

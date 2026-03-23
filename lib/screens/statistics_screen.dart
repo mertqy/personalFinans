@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/credit_card_provider.dart';
 import '../core/utils.dart';
 import '../widgets/spending_heatmap.dart';
 import '../widgets/custom_statistics_charts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class StatisticsScreen extends ConsumerStatefulWidget {
   const StatisticsScreen({super.key});
@@ -163,20 +165,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         backgroundColor: bgColor,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text(
           'Detaylı İstatistikler',
           style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.tune, color: Colors.white),
-            onPressed: () {},
-          )
-        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -198,7 +190,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     _buildFilterPill('Banka', 3, _selectedAccountIndex, primaryPurple),
                   ],
                 ),
-              ),
+              ).animate().fade(duration: 400.ms).slideX(begin: 0.1),
               const SizedBox(height: 16),
               
               // Timeframe Filters

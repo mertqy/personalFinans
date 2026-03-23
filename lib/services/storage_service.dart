@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/account.dart';
@@ -169,6 +169,37 @@ class StorageService {
   
   static void addTransfer(Transfer transfer) => transferBox.put(transfer.id, transfer);
 
+  // ==== BUDGET OPERATIONS ====
+  static Box<Budget> get budgetBox => Hive.box<Budget>('budgets');
+  
+  static List<Budget> getBudgets() => budgetBox.values.toList();
+  
+  static void addBudget(Budget budget) => budgetBox.put(budget.id, budget);
+  
+  static void updateBudget(Budget budget) => budgetBox.put(budget.id, budget);
+  
+  static void deleteBudget(String id) => budgetBox.delete(id);
+
+  // ==== GOAL OPERATIONS ====
+  static Box<Goal> get goalBox => Hive.box<Goal>('goals');
+  
+  static List<Goal> getGoals() => goalBox.values.toList();
+  
+  static void addGoal(Goal goal) => goalBox.put(goal.id, goal);
+  
+  static void updateGoal(Goal goal) => goalBox.put(goal.id, goal);
+  
+  static void deleteGoal(String id) => goalBox.delete(id);
+  
+  static void adjustGoalAmount(String goalId, double amount) {
+    final goal = goalBox.get(goalId);
+    if (goal != null) {
+      goal.currentAmount += amount;
+      goal.updatedAt = DateTime.now();
+      goal.save();
+    }
+  }
+
   // ==== SUBSCRIPTION OPERATIONS ====
   static Box<Subscription> get subscriptionBox => Hive.box<Subscription>('subscriptions');
   
@@ -186,5 +217,19 @@ class StorageService {
   static List<ExchangeRate> getExchangeRates() => exchangeRateBox.values.toList();
   
   static void updateExchangeRate(ExchangeRate rate) => exchangeRateBox.put(rate.code, rate);
+
+  /// Clears all boxes. Useful for testing.
+  static void clearAll() {
+    Hive.box('settings').clear();
+    Hive.box<Account>('accounts').clear();
+    Hive.box<trx.Transaction>('transactions').clear();
+    Hive.box<CreditCard>('credit_cards').clear();
+    Hive.box<Loan>('loans').clear();
+    Hive.box<Transfer>('transfers').clear();
+    Hive.box<Budget>('budgets').clear();
+    Hive.box<Goal>('goals').clear();
+    Hive.box<Subscription>('subscriptions').clear();
+    Hive.box<ExchangeRate>('exchange_rates').clear();
+  }
 }
 

@@ -4,6 +4,7 @@ import '../models/account.dart';
 import '../providers/account_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../core/utils.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class AccountDetailScreen extends ConsumerWidget {
   final Account account;
@@ -129,7 +130,7 @@ class AccountDetailScreen extends ConsumerWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      );
+                      ).animate().fade(duration: 400.ms).slideX(begin: 0.1);
                     },
                     childCount: transactions.length,
                   ),

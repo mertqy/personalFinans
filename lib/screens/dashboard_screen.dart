@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 import '../providers/account_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/budget_provider.dart';
@@ -12,6 +13,7 @@ import '../widgets/transaction_modal.dart';
 import '../providers/exchange_rate_provider.dart';
 import '../services/storage_service.dart';
 import '../widgets/mini_heatmap.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -169,7 +171,7 @@ class DashboardScreen extends ConsumerWidget {
                     ],
                   ),
                 ],
-              ),
+              ).animate().fade(duration: 400.ms).slide(begin: const Offset(0, -0.2)),
               const SizedBox(height: 24),
 
               // Total Balance Card
@@ -217,7 +219,7 @@ class DashboardScreen extends ConsumerWidget {
                     _buildRatesPillRow(ref),
                   ],
                 ),
-              ),
+              ).animate(delay: 100.ms).fade(duration: 500.ms).scale(begin: const Offset(0.95, 0.95), curve: Curves.easeOutBack),
               const SizedBox(height: 16),
 
               // Income / Expense Row
@@ -339,7 +341,7 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
-              ),
+              ).animate(delay: 200.ms).fade(duration: 400.ms).slideX(begin: 0.1),
               const SizedBox(height: 24),
 
               // Harcama Lokasyonları 
@@ -402,7 +404,7 @@ class DashboardScreen extends ConsumerWidget {
                         }),
                   ],
                 ),
-              ),
+              ).animate(delay: 300.ms).fade(duration: 400.ms).slideY(begin: 0.1),
               const SizedBox(height: 24),
 
               // İşlem Geçmişi
@@ -511,7 +513,7 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                   ],
                 ),
-              ),
+              ).animate(delay: 400.ms).fade(duration: 400.ms).slideY(begin: 0.1),
               const SizedBox(height: 24),
 
               // Bottom Action Buttons

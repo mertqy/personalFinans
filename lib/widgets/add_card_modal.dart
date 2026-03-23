@@ -6,6 +6,7 @@ import '../providers/account_provider.dart';
 import '../models/credit_card.dart';
 import '../core/utils.dart';
 import '../core/formatters.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class AddCardModal extends ConsumerStatefulWidget {
   final CreditCard? card;
@@ -228,7 +229,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
               ),
             ),
             const SizedBox(height: 24),
-          ],
+          ].animate(interval: 50.ms).fade(duration: 400.ms).slideY(begin: 0.1),
         ),
       ),
     ),

@@ -4,6 +4,7 @@ import '../../providers/credit_card_provider.dart';
 import '../../providers/account_provider.dart';
 import '../../core/utils.dart';
 import '../../widgets/add_card_modal.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class CardsTab extends ConsumerWidget {
   const CardsTab({super.key});
@@ -186,7 +187,7 @@ class CardsTab extends ConsumerWidget {
                     ),
                   ],
                 ),
-              );
+              ).animate().fade(duration: 400.ms).slideY(begin: 0.2);
             },
           );
   }

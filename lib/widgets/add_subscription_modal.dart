@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
+import 'package:collection/collection.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/account_provider.dart';
 import '../models/subscription.dart';
@@ -52,16 +52,21 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
     _nameController = TextEditingController(text: sub?.name);
     final accounts = ref.read(accountProvider);
     final subAccount = accounts.where((a) => a.id == sub?.accountId).firstOrNull;
-    final displayAmount = sub != null 
-        ? AppUtils.convertToBaseCurrency(sub.amount, subAccount?.currency ?? 'TRY', 'TRY')
-        : null;
+    final displayAmount = (sub != null && subAccount != null)
+        ? AppUtils.convertToBaseCurrency(sub.amount, subAccount.currency, 'TRY')
+        : (sub?.amount ?? 0.0); // Fallback to raw amount if account not found
 
     _amountController = TextEditingController(
-      text: displayAmount != null ? ThousandsSeparatorInputFormatter.format(displayAmount) : '',
+      text: displayAmount > 0 ? ThousandsSeparatorInputFormatter.format(displayAmount) : '',
     );
     _billingDay = sub?.billingDay ?? 1;
     _frequency = sub?.frequency ?? 'monthly';
     _selectedAccountId = sub?.accountId;
+    
+    // Yeni abonelikse ve hesaplar varsa ilkini seç
+    if (_selectedAccountId == null && accounts.isNotEmpty) {
+      _selectedAccountId = accounts.first.id;
+    }
     _selectedIcon = sub?.icon ?? '📺';
     _selectedColor = sub?.color ?? '#FF6B6B';
   }
@@ -168,7 +173,6 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                   ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
                     ThousandsSeparatorInputFormatter(),
                   ],
                   validator: (v) {
@@ -184,9 +188,9 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<int>(
-                        initialValue: List.generate(28, (i) => i + 1).contains(_billingDay) ? _billingDay : null,
+                        initialValue: List.generate(31, (i) => i + 1).contains(_billingDay) ? _billingDay : null,
                         decoration: const InputDecoration(labelText: 'Ödeme Günü', border: OutlineInputBorder()),
-                        items: List.generate(28, (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}'))),
+                        items: List.generate(31, (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}'))),
                         onChanged: (v) => setState(() => _billingDay = v!),
                       ),
                     ),
@@ -262,7 +266,17 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
     final now = DateTime.now();
     final amountInTry = ThousandsSeparatorInputFormatter.parse(_amountController.text);
     final accounts = ref.read(accountProvider);
-    final selectedAccount = accounts.firstWhere((a) => a.id == _selectedAccountId);
+    
+    // Güvenli hesap seçimi
+    final selectedAccountIndex = accounts.indexWhere((a) => a.id == _selectedAccountId);
+    if (selectedAccountIndex == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seçili hesap bulunamadı. Lütfen tekrar hesap seçin.')),
+      );
+      return;
+    }
+    
+    final selectedAccount = accounts[selectedAccountIndex];
     final amount = AppUtils.convertToBaseCurrency(amountInTry, 'TRY', selectedAccount.currency);
 
     final subscription = Subscription(

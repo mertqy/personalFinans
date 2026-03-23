@@ -1,5 +1,6 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/transaction.dart';
+import 'package:collection/collection.dart';
 import '../services/storage_service.dart';
 import '../core/utils.dart';
 import 'account_provider.dart';
@@ -15,7 +16,7 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
 
   TransactionNotifier(this._ref) : super([]) {
     loadTransactions();
-    processRecurring();
+    Future.microtask(() => processRecurring());
   }
 
   void loadTransactions() {
