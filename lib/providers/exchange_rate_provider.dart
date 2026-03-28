@@ -1,23 +1,44 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/exchange_rate.dart';
 import '../services/currency_service.dart';
 import '../services/storage_service.dart';
 
-final exchangeRateProvider = StateNotifierProvider<ExchangeRateNotifier, List<ExchangeRate>>((ref) {
-  return ExchangeRateNotifier();
-});
+final exchangeRateProvider =
+    StateNotifierProvider<ExchangeRateNotifier, List<ExchangeRate>>((ref) {
+      return ExchangeRateNotifier();
+    });
 
 class ExchangeRateNotifier extends StateNotifier<List<ExchangeRate>> {
+  Timer? _timer;
+
   ExchangeRateNotifier() : super([]) {
     _loadFromStorage();
     _listenToNetwork();
+    _startPeriodicRefresh();
+  }
+
+  void _startPeriodicRefresh() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      updateRates();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   void _listenToNetwork() {
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
-      if (results.contains(ConnectivityResult.mobile) || 
-          results.contains(ConnectivityResult.wifi) || 
+    Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
+      if (results.contains(ConnectivityResult.mobile) ||
+          results.contains(ConnectivityResult.wifi) ||
           results.contains(ConnectivityResult.ethernet)) {
         // Ağ geldiğinde kurları tekrar güncelle
         updateRates();
@@ -30,15 +51,17 @@ class ExchangeRateNotifier extends StateNotifier<List<ExchangeRate>> {
     if (storedRates.isNotEmpty) {
       state = storedRates;
     }
-    
-    // Veriler boşsa veya 15 dakikadan eskiyse ve çevrimiçiysek güncelle
-    if (storedRates.isEmpty || 
-        DateTime.now().difference(storedRates.first.lastUpdated).inMinutes >= 15) {
+
+    // Veriler boşsa veya 1 dakikadan eskiyse ve çevrimiçiysek güncelle
+    if (storedRates.isEmpty ||
+        DateTime.now().difference(storedRates.first.lastUpdated).inMinutes >=
+            1) {
       updateRates();
     }
   }
 
   Future<void> updateRates() async {
+    debugPrint('Döviz kurları güncelleniyor: ${DateTime.now()}');
     try {
       final connectivityResults = await Connectivity().checkConnectivity();
       if (connectivityResults.contains(ConnectivityResult.none)) {
@@ -48,12 +71,12 @@ class ExchangeRateNotifier extends StateNotifier<List<ExchangeRate>> {
 
       final newRatesMap = await CurrencyService.fetchRates();
       final List<ExchangeRate> newRatesList = newRatesMap.values.toList();
-      
+
       // Hive'a kaydet (Ağ yokken okunmak üzere saklanacak)
       for (var rate in newRatesList) {
         StorageService.updateExchangeRate(rate);
       }
-      
+
       state = newRatesList;
     } catch (e) {
       // Hata alınırsa sessizce devam et, uygulama offline moda geçmiş gibi son kur bilgilerini kullanmaya devam eder.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/budget_provider.dart';
 import '../models/goal.dart';
 import '../core/utils.dart';
@@ -18,20 +19,33 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   late final TextEditingController _amountController;
-  
+
   String _selectedIcon = '🎯';
   DateTime _targetDate = DateTime.now().add(const Duration(days: 90));
   String _selectedLevel = 'beginner';
   String _selectedLevelColor = '#64B5F6';
 
-  final List<String> _icons = ['🎯', '🏠', '🚗', '✈️', '📱', '💻', '🎓', '💍', '🏖️', '💪'];
+  final List<String> _icons = [
+    '🎯',
+    '🏠',
+    '🚗',
+    '✈️',
+    '📱',
+    '💻',
+    '🎓',
+    '💍',
+    '🏖️',
+    '💪',
+  ];
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.goal?.title ?? '');
     _amountController = TextEditingController(
-      text: widget.goal != null ? ThousandsSeparatorInputFormatter.format(widget.goal!.targetAmount) : '',
+      text: widget.goal != null
+          ? ThousandsSeparatorInputFormatter.format(widget.goal!.targetAmount)
+          : '',
     );
     if (widget.goal != null) {
       _selectedIcon = widget.goal!.icon;
@@ -50,7 +64,9 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
 
   void _save() {
     if (_formKey.currentState!.validate()) {
-      final amount = ThousandsSeparatorInputFormatter.parse(_amountController.text);
+      final amount = ThousandsSeparatorInputFormatter.parse(
+        _amountController.text,
+      );
 
       if (widget.goal != null) {
         // Edit
@@ -61,13 +77,13 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
         updatedGoal.targetDate = _targetDate;
         updatedGoal.isCompleted = updatedGoal.currentAmount >= amount;
         updatedGoal.updatedAt = DateTime.now();
-        
+
         ref.read(goalProvider.notifier).updateGoal(updatedGoal);
       } else {
         // Add
         final goal = Goal(
           id: AppUtils.generateId(),
-          userId: 'temp_user_id',
+          userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
           title: _titleController.text,
           icon: _selectedIcon,
           targetAmount: amount,
@@ -81,7 +97,7 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
         );
         ref.read(goalProvider.notifier).addGoal(goal);
       }
-      
+
       Navigator.pop(context);
     }
   }
@@ -95,7 +111,9 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        top: 24, left: 24, right: 24,
+        top: 24,
+        left: 24,
+        right: 24,
       ),
       child: Form(
         key: _formKey,
@@ -108,10 +126,17 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    widget.goal == null ? 'Yeni Birikim Hedefi' : 'Hedefi Düzenle',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    widget.goal == null
+                        ? 'Yeni Birikim Hedefi'
+                        : 'Hedefi Düzenle',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -124,14 +149,17 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
                   hintText: 'Örn: Tatil Fonu',
                   prefixIcon: Icon(Icons.edit_outlined),
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Hedef adı giriniz' : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Hedef adı giriniz' : null,
               ),
               const SizedBox(height: 16),
 
               // Target Amount
               TextFormField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [ThousandsSeparatorInputFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'Hedeflenen Tutar',
@@ -140,7 +168,9 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
                 ),
                 validator: (val) {
                   if (val == null || val.isEmpty) return 'Tutar giriniz';
-                  if (ThousandsSeparatorInputFormatter.parse(val) <= 0) return 'Tutar geçersiz';
+                  if (ThousandsSeparatorInputFormatter.parse(val) <= 0) {
+                    return 'Tutar geçersiz';
+                  }
                   return null;
                 },
               ),
@@ -151,7 +181,9 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.calendar_today_outlined),
                 title: const Text('Hedef Tarih'),
-                subtitle: Text(DateFormat('dd MMMM yyyy', 'tr_TR').format(_targetDate)),
+                subtitle: Text(
+                  DateFormat('dd MMMM yyyy', 'tr_TR').format(_targetDate),
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
                   final picked = await showDatePicker(
@@ -182,9 +214,15 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.05),
+                        color: isSelected
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.1)
+                            : Colors.grey.withValues(alpha: 0.05),
                         border: Border.all(
-                          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.transparent,
                           width: 2,
                         ),
                         borderRadius: BorderRadius.circular(12),
@@ -206,11 +244,18 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: Text(
-                    widget.goal == null ? 'Hedef Ekle' : 'Değişiklikleri Kaydet',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    widget.goal == null
+                        ? 'Hedef Ekle'
+                        : 'Değişiklikleri Kaydet',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

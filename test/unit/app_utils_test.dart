@@ -12,7 +12,7 @@ void main() {
     test('generateId returns unique UUID', () {
       final id1 = AppUtils.generateId();
       final id2 = AppUtils.generateId();
-      
+
       expect(id1.isNotEmpty, true);
       expect(id2.isNotEmpty, true);
       expect(id1, isNot(equals(id2)));
@@ -34,7 +34,10 @@ void main() {
     test('formatCurrency converts to localized format', () {
       final formatted = AppUtils.formatCurrency(1500.50, currency: 'TRY');
       // Format is locale dependent, generally similar to 1.500,50 ₺ or ₺1.500,50
-      expect(formatted.contains('1.500,50') || formatted.contains('1500,50'), true);
+      expect(
+        formatted.contains('1.500,50') || formatted.contains('1500,50'),
+        true,
+      );
       expect(formatted.contains('₺'), true);
     });
 
@@ -56,7 +59,7 @@ void main() {
 
     test('convertToBaseCurrency correctly applies exchange rates', () {
       // 1 USD is 32.85 TRY, 1 EUR is 35.60 TRY (from constants)
-      
+
       // USD to TRY
       final tryAmount = AppUtils.convertToBaseCurrency(100, 'USD', 'TRY');
       expect(tryAmount, 3285.0);

@@ -32,11 +32,14 @@ class CustomSpendingChart extends StatelessWidget {
                   // Grid lines
                   Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(4, (index) => Container(
-                      height: 1,
-                      width: double.infinity,
-                      color: Colors.white.withValues(alpha: 0.05),
-                    )),
+                    children: List.generate(
+                      4,
+                      (index) => Container(
+                        height: 1,
+                        width: double.infinity,
+                        color: Colors.white.withValues(alpha: 0.05),
+                      ),
+                    ),
                   ),
                   // Bars
                   Positioned.fill(
@@ -49,17 +52,21 @@ class CustomSpendingChart extends StatelessWidget {
                           double heightFactor = data[index] / maxVal;
                           // Future or empty months stay at 0, no dip effect
                           bool hasData = data[index] > 0;
-                          
+
                           return Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
                                   if (hasData)
                                     Container(
                                       width: double.infinity,
-                                      height: (constraints.maxHeight - 20) * heightFactor,
+                                      height:
+                                          (constraints.maxHeight - 20) *
+                                          heightFactor,
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           begin: Alignment.topCenter,
@@ -72,7 +79,9 @@ class CustomSpendingChart extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(6),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: primaryColor.withValues(alpha: 0.2),
+                                            color: primaryColor.withValues(
+                                              alpha: 0.2,
+                                            ),
                                             blurRadius: 8,
                                             offset: const Offset(0, 2),
                                           ),
@@ -84,7 +93,9 @@ class CustomSpendingChart extends StatelessWidget {
                                       width: double.infinity,
                                       height: 4,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.05),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.05,
+                                        ),
                                         borderRadius: BorderRadius.circular(2),
                                       ),
                                     ),
@@ -108,7 +119,9 @@ class CustomSpendingChart extends StatelessWidget {
           children: List.generate(labels.length, (index) {
             // Filter labels for density if needed
             bool showLabel = true;
-            if (selectedTimeframeIndex == 1 && index % 5 != 0 && index != labels.length - 1) {
+            if (selectedTimeframeIndex == 1 &&
+                index % 5 != 0 &&
+                index != labels.length - 1) {
               showLabel = false;
             }
             if (selectedTimeframeIndex == 3 && index % 4 != 0) {
@@ -134,7 +147,6 @@ class CustomSpendingChart extends StatelessWidget {
 }
 
 // No longer used
-
 
 class CustomComparisonBarChart extends StatelessWidget {
   final List<double> incomeData;
@@ -168,7 +180,8 @@ class CustomComparisonBarChart extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: List.generate(labels.length, (index) {
                   // Only show bars with data if daily/monthly
-                  if ((selectedTimeframeIndex == 1 || selectedTimeframeIndex == 3) &&
+                  if ((selectedTimeframeIndex == 1 ||
+                          selectedTimeframeIndex == 3) &&
                       incomeData[index] == 0 &&
                       expenseData[index] == 0 &&
                       labels[index].isEmpty) {
@@ -176,8 +189,10 @@ class CustomComparisonBarChart extends StatelessWidget {
                   }
 
                   final double availableHeight = constraints.maxHeight - 20;
-                  double incomeHeight = (incomeData[index] / maxVal) * availableHeight;
-                  double expenseHeight = (expenseData[index] / maxVal) * availableHeight;
+                  double incomeHeight =
+                      (incomeData[index] / maxVal) * availableHeight;
+                  double expenseHeight =
+                      (expenseData[index] / maxVal) * availableHeight;
 
                   return Flexible(
                     child: Column(
@@ -244,11 +259,7 @@ class CustomDonutChart extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomPaint(
       size: const Size(200, 200),
-      painter: _DonutPainter(
-        data: data,
-        total: total,
-        colors: colors,
-      ),
+      painter: _DonutPainter(data: data, total: total, colors: colors),
     );
   }
 }
@@ -258,7 +269,11 @@ class _DonutPainter extends CustomPainter {
   final double total;
   final List<Color> colors;
 
-  _DonutPainter({required this.data, required this.total, required this.colors});
+  _DonutPainter({
+    required this.data,
+    required this.total,
+    required this.colors,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {

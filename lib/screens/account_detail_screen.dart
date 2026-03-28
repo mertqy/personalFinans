@@ -14,8 +14,11 @@ class AccountDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final allAccounts = ref.watch(accountProvider);
-    final transactions = ref.watch(transactionProvider)
-        .where((tx) => tx.accountId == account.id || tx.toAccountId == account.id)
+    final transactions = ref
+        .watch(transactionProvider)
+        .where(
+          (tx) => tx.accountId == account.id || tx.toAccountId == account.id,
+        )
         .toList();
 
     return Scaffold(
@@ -31,7 +34,10 @@ class AccountDetailScreen extends ConsumerWidget {
                   color: Colors.transparent,
                   child: Text(
                     account.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -40,7 +46,9 @@ class AccountDetailScreen extends ConsumerWidget {
                   gradient: LinearGradient(
                     colors: [
                       Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                      Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.6),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -55,7 +63,11 @@ class AccountDetailScreen extends ConsumerWidget {
                         color: Colors.transparent,
                         child: Text(
                           AppUtils.formatCurrency(
-                            AppUtils.convertToBaseCurrency(account.balance, account.currency, 'TRY'),
+                            AppUtils.convertToBaseCurrency(
+                              account.balance,
+                              account.currency,
+                              'TRY',
+                            ),
                             currency: 'TRY',
                           ),
                           style: const TextStyle(
@@ -68,7 +80,10 @@ class AccountDetailScreen extends ConsumerWidget {
                     ),
                     if (account.currency != 'TRY')
                       Text(
-                        AppUtils.formatCurrency(account.balance, currency: account.currency),
+                        AppUtils.formatCurrency(
+                          account.balance,
+                          currency: account.currency,
+                        ),
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.white.withValues(alpha: 0.8),
@@ -94,46 +109,59 @@ class AccountDetailScreen extends ConsumerWidget {
                   child: Center(child: Text('Henüz hareket yok.')),
                 )
               : SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final tx = transactions[index];
-                      // Bir hesap için 'gelir' durumu:
-                      // 1. İşlem tipi 'income' ise
-                      // 2. İşlem tipi 'transfer' ve bu hesap hedef hesap ise
-                      final bool isEffectivelyIncome = tx.type == 'income' || 
-                                                     (tx.type == 'transfer' && tx.toAccountId == account.id);
-                      
-                      final bool isTransfer = tx.type == 'transfer';
-                      final bool isOutgoingTransfer = isTransfer && tx.accountId == account.id;
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final tx = transactions[index];
+                    // Bir hesap için 'gelir' durumu:
+                    // 1. İşlem tipi 'income' ise
+                    // 2. İşlem tipi 'transfer' ve bu hesap hedef hesap ise
+                    final bool isEffectivelyIncome =
+                        tx.type == 'income' ||
+                        (tx.type == 'transfer' && tx.toAccountId == account.id);
 
-                      // Transferlerde orijinal para birimi, diğerlerinde TRY gösterilecek
-                      final txCurrency = isTransfer 
-                          ? AppUtils.getEffectiveCurrency(tx, allAccounts, []) 
-                          : 'TRY';
-                                              
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isEffectivelyIncome 
-                              ? Colors.green.withValues(alpha: 0.1) 
-                              : (isTransfer ? Colors.blue.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1)),
-                          child: Icon(
-                            isEffectivelyIncome ? Icons.keyboard_arrow_down : (isTransfer ? Icons.swap_horiz : Icons.keyboard_arrow_up),
-                            color: isEffectivelyIncome ? Colors.green : (isTransfer ? Colors.blue : Colors.red),
-                          ),
+                    final bool isTransfer = tx.type == 'transfer';
+                    final bool isOutgoingTransfer =
+                        isTransfer && tx.accountId == account.id;
+
+                    // Transferlerde orijinal para birimi, diğerlerinde TRY gösterilecek
+                    final txCurrency = isTransfer
+                        ? AppUtils.getEffectiveCurrency(tx, allAccounts, [])
+                        : 'TRY';
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: isEffectivelyIncome
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : (isTransfer
+                                  ? Colors.blue.withValues(alpha: 0.1)
+                                  : Colors.red.withValues(alpha: 0.1)),
+                        child: Icon(
+                          isEffectivelyIncome
+                              ? Icons.keyboard_arrow_down
+                              : (isTransfer
+                                    ? Icons.swap_horiz
+                                    : Icons.keyboard_arrow_up),
+                          color: isEffectivelyIncome
+                              ? Colors.green
+                              : (isTransfer ? Colors.blue : Colors.red),
                         ),
-                        title: Text(tx.description.isNotEmpty ? tx.description : AppUtils.getCategoryName(tx.category)),
-                        subtitle: Text(AppUtils.formatDate(tx.date)),
-                        trailing: Text(
-                          '${isEffectivelyIncome ? '+' : (isOutgoingTransfer || tx.type == 'expense' ? '-' : '')}${AppUtils.formatCurrency(isTransfer ? tx.amount : AppUtils.getDisplayTRYAmount(tx, allAccounts, []), currency: txCurrency)}',
-                          style: TextStyle(
-                            color: isEffectivelyIncome ? Colors.green : (isTransfer ? Colors.blue : Colors.red),
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                      title: Text(
+                        tx.description.isNotEmpty
+                            ? tx.description
+                            : AppUtils.getCategoryName(tx.category),
+                      ),
+                      subtitle: Text(AppUtils.formatDate(tx.date)),
+                      trailing: Text(
+                        '${isEffectivelyIncome ? '+' : (isOutgoingTransfer || tx.type == 'expense' ? '-' : '')}${AppUtils.formatCurrency(isTransfer ? tx.amount : AppUtils.getDisplayTRYAmount(tx, allAccounts, []), currency: txCurrency)}',
+                        style: TextStyle(
+                          color: isEffectivelyIncome
+                              ? Colors.green
+                              : (isTransfer ? Colors.blue : Colors.red),
+                          fontWeight: FontWeight.bold,
                         ),
-                      ).animate().fade(duration: 400.ms).slideX(begin: 0.1);
-                    },
-                    childCount: transactions.length,
-                  ),
+                      ),
+                    ).animate().fade(duration: 400.ms).slideX(begin: 0.1);
+                  }, childCount: transactions.length),
                 ),
         ],
       ),

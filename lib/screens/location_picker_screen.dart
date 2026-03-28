@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -17,7 +17,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedLocation = widget.initialLocation ?? const LatLng(39.9334, 32.8597); // Ankara default
+    _selectedLocation =
+        widget.initialLocation ??
+        const LatLng(39.9334, 32.8597); // Ankara default
   }
 
   @override
@@ -57,7 +59,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   point: _selectedLocation!,
                   width: 80,
                   height: 80,
-                  child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.red,
+                    size: 40,
+                  ),
                 ),
               ],
             ),

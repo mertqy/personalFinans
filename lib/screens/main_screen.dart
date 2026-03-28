@@ -26,7 +26,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     final currentTabIndex = ref.watch(navigationProvider);
 
-    final List<Widget> _pages = [
+    final List<Widget> pages = [
       const DashboardScreen(),
       const BudgetScreen(),
       const PaymentsScreen(),
@@ -44,15 +44,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             child: child,
           );
         },
-        child: _pages[currentTabIndex > 3 ? 0 : currentTabIndex],
+        child: pages[currentTabIndex > 3 ? 0 : currentTabIndex],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentTabIndex > 3 ? 3 : currentTabIndex, // bounds check if returning from previous 5 tab layout
+        currentIndex: currentTabIndex > 3
+            ? 3
+            : currentTabIndex, // bounds check if returning from previous 5 tab layout
         onTap: _onTabTapped,
         type: BottomNavigationBarType.fixed,
         backgroundColor: Theme.of(context).colorScheme.surface,
         selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        unselectedItemColor: Theme.of(
+          context,
+        ).colorScheme.onSurface.withValues(alpha: 0.6),
         showSelectedLabels: true,
         showUnselectedLabels: true,
         selectedFontSize: 10,
@@ -83,4 +87,3 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 }
-

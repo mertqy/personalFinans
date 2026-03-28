@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/account_provider.dart';
 import '../../core/utils.dart';
+import '../../core/premium_limits.dart';
 import '../../widgets/add_account_modal.dart';
+import '../../widgets/premium_gate.dart';
 import '../account_detail_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -18,13 +20,32 @@ class AccountsTab extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.account_balance_wallet_outlined, size: 64, color: Colors.grey),
+                const Icon(
+                  Icons.account_balance_wallet_outlined,
+                  size: 64,
+                  color: Colors.grey,
+                ),
                 const SizedBox(height: 16),
-                const Text('Henüz bir hesap eklemediniz.', style: TextStyle(color: Colors.grey)),
+                const Text(
+                  'Henüz bir hesap eklemediniz.',
+                  style: TextStyle(color: Colors.grey),
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (c) => const AddAccountModal());
+                  onPressed: () async {
+                    final allowed = await PremiumGate.check(
+                      context: context,
+                      ref: ref,
+                      currentCount: accounts.length,
+                      freeLimit: PremiumLimits.freeAccountLimit,
+                    );
+                    if (!allowed || !context.mounted) return;
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (c) => const AddAccountModal(),
+                    );
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Hesap Ekle'),
@@ -34,20 +55,35 @@ class AccountsTab extends ConsumerWidget {
           )
         : ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: accounts.length + 1, // +1 for the Add New button at the end
+            itemCount:
+                accounts.length + 1, // +1 for the Add New button at the end
             itemBuilder: (context, index) {
               if (index == accounts.length) {
                 return Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (c) => const AddAccountModal());
+                    onPressed: () async {
+                      final allowed = await PremiumGate.check(
+                        context: context,
+                        ref: ref,
+                        currentCount: accounts.length,
+                        freeLimit: PremiumLimits.freeAccountLimit,
+                      );
+                      if (!allowed || !context.mounted) return;
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (c) => const AddAccountModal(),
+                      );
                     },
                     icon: const Icon(Icons.add),
                     label: const Text('Yeni Hesap Ekle'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.all(16),
-                      side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                 );
@@ -61,7 +97,15 @@ class AccountsTab extends ConsumerWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Color(int.parse((acc.color ?? '#64B5F6').replaceFirst('#', 'ff'), radix: 16)).withValues(alpha: 0.5), width: 1),
+                  side: BorderSide(
+                    color: Color(
+                      int.parse(
+                        (acc.color ?? '#64B5F6').replaceFirst('#', 'ff'),
+                        radix: 16,
+                      ),
+                    ).withValues(alpha: 0.5),
+                    width: 1,
+                  ),
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
@@ -78,8 +122,24 @@ class AccountsTab extends ConsumerWidget {
                     child: Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: Color(int.parse((acc.color ?? '#64B5F6').replaceFirst('#', 'ff'), radix: 16)).withValues(alpha: 0.2),
-                          child: Icon(AppUtils.getAccountIcon(acc.type), color: Color(int.parse((acc.color ?? '#64B5F6').replaceFirst('#', 'ff'), radix: 16))),
+                          backgroundColor: Color(
+                            int.parse(
+                              (acc.color ?? '#64B5F6').replaceFirst('#', 'ff'),
+                              radix: 16,
+                            ),
+                          ).withValues(alpha: 0.2),
+                          child: Icon(
+                            AppUtils.getAccountIcon(acc.type),
+                            color: Color(
+                              int.parse(
+                                (acc.color ?? '#64B5F6').replaceFirst(
+                                  '#',
+                                  'ff',
+                                ),
+                                radix: 16,
+                              ),
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -90,10 +150,22 @@ class AccountsTab extends ConsumerWidget {
                                 tag: 'acc_name_${acc.id}',
                                 child: Material(
                                   color: Colors.transparent,
-                                  child: Text(acc.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  child: Text(
+                                    acc.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              Text(AppUtils.getAccountTypeLabel(acc.type), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              Text(
+                                AppUtils.getAccountTypeLabel(acc.type),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -109,18 +181,27 @@ class AccountsTab extends ConsumerWidget {
                                   children: [
                                     Text(
                                       AppUtils.formatCurrency(
-                                        AppUtils.convertToBaseCurrency(acc.balance, acc.currency, 'TRY'),
+                                        AppUtils.convertToBaseCurrency(
+                                          acc.balance,
+                                          acc.currency,
+                                          'TRY',
+                                        ),
                                         currency: 'TRY',
                                       ),
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color: isPositive ? Colors.green : Colors.red,
+                                        color: isPositive
+                                            ? Colors.green
+                                            : Colors.red,
                                       ),
                                     ),
                                     if (acc.currency != 'TRY')
                                       Text(
-                                        AppUtils.formatCurrency(acc.balance, currency: acc.currency),
+                                        AppUtils.formatCurrency(
+                                          acc.balance,
+                                          currency: acc.currency,
+                                        ),
                                         style: const TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey,
@@ -131,7 +212,11 @@ class AccountsTab extends ConsumerWidget {
                               ),
                             ),
                             PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, size: 20, color: Colors.grey),
+                              icon: const Icon(
+                                Icons.more_vert,
+                                size: 20,
+                                color: Colors.grey,
+                              ),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onSelected: (value) {
@@ -140,15 +225,25 @@ class AccountsTab extends ConsumerWidget {
                                     context: context,
                                     isScrollControlled: true,
                                     backgroundColor: Colors.transparent,
-                                    builder: (c) => AddAccountModal(account: acc),
+                                    builder: (c) =>
+                                        AddAccountModal(account: acc),
                                   );
                                 } else if (value == 'delete') {
                                   _confirmDelete(context, ref, acc);
                                 }
                               },
                               itemBuilder: (context) => [
-                                const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
-                                const PopupMenuItem(value: 'delete', child: Text('Sil', style: TextStyle(color: Colors.red))),
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Düzenle'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text(
+                                    'Sil',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -167,18 +262,26 @@ class AccountsTab extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hesabı Sil'),
-        content: Text('${acc.name} hesabını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'),
+        content: Text(
+          '${acc.name} hesabını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
           ElevatedButton(
             onPressed: () {
               ref.read(accountProvider.notifier).deleteAccount(acc.id);
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Hesap silindi')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Hesap silindi')));
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Sil'),
           ),
         ],

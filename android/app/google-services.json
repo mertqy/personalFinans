@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "477479355989",
+    "project_id": "sample-firebase-ai-app-f9103",
+    "storage_bucket": "sample-firebase-ai-app-f9103.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:477479355989:android:8167801543807b4eb9b6dc",
+        "android_client_info": {
+          "package_name": "com.example.flatter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAh4uUjyHLf43bWicQ5bIJ4TbFpP0-JLC8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

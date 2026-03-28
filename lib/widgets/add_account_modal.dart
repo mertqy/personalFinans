@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/account_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../models/account.dart';
 import '../models/transaction.dart';
 import '../core/utils.dart';
 import '../core/formatters.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 class AddAccountModal extends ConsumerStatefulWidget {
   final Account? account;
@@ -21,7 +22,7 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _balanceController;
-  
+
   late String _selectedType;
   late String _selectedCurrency;
 
@@ -38,7 +39,9 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
     super.initState();
     _nameController = TextEditingController(text: widget.account?.name);
     _balanceController = TextEditingController(
-      text: widget.account != null ? ThousandsSeparatorInputFormatter.format(widget.account!.balance) : '',
+      text: widget.account != null
+          ? ThousandsSeparatorInputFormatter.format(widget.account!.balance)
+          : '',
     );
     _selectedType = widget.account?.type ?? 'cash';
     _selectedCurrency = widget.account?.currency ?? 'TRY';
@@ -53,7 +56,11 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
 
   void _save() {
     if (_formKey.currentState!.validate()) {
-      final amount = ThousandsSeparatorInputFormatter.parse(_balanceController.text);
+      final amount = ThousandsSeparatorInputFormatter.parse(
+        _balanceController.text,
+      );
+      final String currentUserId =
+          FirebaseAuth.instance.currentUser?.uid ?? 'temp_user';
 
       if (widget.account != null) {
         // Düzenleme
@@ -63,13 +70,13 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
         updatedAccount.balance = amount;
         updatedAccount.currency = _selectedCurrency;
         updatedAccount.updatedAt = DateTime.now();
-        
+
         ref.read(accountProvider.notifier).updateAccount(updatedAccount);
       } else {
         // Yeni Ekleme
         final account = Account(
           id: AppUtils.generateId(),
-          userId: 'temp_user_id',
+          userId: currentUserId,
           name: _nameController.text,
           type: _selectedType,
           balance: 0,
@@ -85,7 +92,7 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
         if (amount > 0) {
           final tx = Transaction(
             id: AppUtils.generateId(),
-            userId: 'temp_user_id',
+            userId: currentUserId,
             type: 'income',
             amount: amount,
             category: 'Açılış Bakiyesi',
@@ -99,7 +106,7 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
           ref.read(transactionProvider.notifier).addTransaction(tx);
         }
       }
-      
+
       Navigator.pop(context);
     }
   }
@@ -115,7 +122,9 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        top: 24, left: 24, right: 24,
+        top: 24,
+        left: 24,
+        right: 24,
       ),
       child: Form(
         key: _formKey,
@@ -126,8 +135,16 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(isEditing ? 'Hesabı Düzenle' : 'Yeni Hesap Ekle', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                Text(
+                  isEditing ? 'Hesabı Düzenle' : 'Yeni Hesap Ekle',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -139,7 +156,14 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _selectedType,
-              items: _types.map((t) => DropdownMenuItem(value: t['value']!, child: Text(t['label']!))).toList(),
+              items: _types
+                  .map(
+                    (t) => DropdownMenuItem(
+                      value: t['value']!,
+                      child: Text(t['label']!),
+                    ),
+                  )
+                  .toList(),
               onChanged: (val) => setState(() => _selectedType = val!),
               decoration: const InputDecoration(labelText: 'Hesap Türü'),
             ),
@@ -167,13 +191,26 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
                   flex: 1,
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedCurrency,
-                    items: _currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                    items: _currencies
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
                     onChanged: (val) {
                       if (val != null && val != _selectedCurrency) {
                         setState(() {
-                          final currentAmount = ThousandsSeparatorInputFormatter.parse(_balanceController.text);
-                          final convertedAmount = AppUtils.convertToBaseCurrency(currentAmount, _selectedCurrency, val);
-                          _balanceController.text = ThousandsSeparatorInputFormatter.format(convertedAmount);
+                          final currentAmount =
+                              ThousandsSeparatorInputFormatter.parse(
+                                _balanceController.text,
+                              );
+                          final convertedAmount =
+                              AppUtils.convertToBaseCurrency(
+                                currentAmount,
+                                _selectedCurrency,
+                                val,
+                              );
+                          _balanceController.text =
+                              ThousandsSeparatorInputFormatter.format(
+                                convertedAmount,
+                              );
                           _selectedCurrency = val;
                         });
                       }
@@ -193,7 +230,10 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Kaydet',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
             const SizedBox(height: 24),

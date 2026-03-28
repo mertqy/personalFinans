@@ -57,14 +57,17 @@ class MiniHeatmap extends ConsumerWidget {
             options: MapOptions(
               initialCenter: center,
               initialZoom: 13.0,
-              backgroundColor: const Color(0xFF141724), // Fallback map background
+              backgroundColor: const Color(
+                0xFF141724,
+              ), // Fallback map background
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                urlTemplate:
+                    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
                 subdomains: const ['a', 'b', 'c', 'd'],
                 userAgentPackageName: 'com.mertqy.personalfinans',
               ),

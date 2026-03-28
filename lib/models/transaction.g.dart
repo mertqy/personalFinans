@@ -1,4 +1,4 @@
-﻿// GENERATED CODE - DO NOT MODIFY BY HAND
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'transaction.dart';
 
@@ -31,6 +31,8 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       locationLng: fields[11] as double?,
       accountId: fields[12] as String,
       creditCardId: fields[13] as String?,
+      toAccountId: fields[16] as String?,
+      toGoalId: fields[17] as String?,
       createdAt: fields[14] as DateTime,
       updatedAt: fields[15] as DateTime,
     );
@@ -39,7 +41,7 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
   @override
   void write(BinaryWriter writer, Transaction obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -71,7 +73,11 @@ class TransactionAdapter extends TypeAdapter<Transaction> {
       ..writeByte(14)
       ..write(obj.createdAt)
       ..writeByte(15)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(16)
+      ..write(obj.toAccountId)
+      ..writeByte(17)
+      ..write(obj.toGoalId);
   }
 
   @override

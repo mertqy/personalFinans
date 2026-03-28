@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/exchange_rate.dart';
 
@@ -8,7 +8,9 @@ class CurrencyService {
 
   static Future<Map<String, ExchangeRate>> fetchRates() async {
     try {
-      final response = await http.get(Uri.parse(apiUrl));
+      final response = await http.get(
+        Uri.parse('$apiUrl?t=${DateTime.now().millisecondsSinceEpoch}'),
+      );
       if (response.statusCode == 200) {
         // UTF-8 decode
         final String body = utf8.decode(response.bodyBytes);
@@ -21,17 +23,18 @@ class CurrencyService {
           'USD': 'USD',
           'EUR': 'EUR',
           'GBP': 'GBP',
-          'GOLD': 'HAS', // 24 Ayar Has Gram Altın
+          'GOLD': 'GRA', // Gram Altın (Piyasa değeri)
         };
-        
+
         targetMapping.forEach((code, apiKey) {
           if (data.containsKey(apiKey)) {
             final node = data[apiKey];
             String? rawValue;
-            
+
             if (node is Map) {
               // V4 uses "Selling", V3 used "satis" or "Satış"
-              rawValue = (node['Selling'] ?? node['satis'] ?? node['Satış'])?.toString();
+              rawValue = (node['Selling'] ?? node['satis'] ?? node['Satış'])
+                  ?.toString();
             }
 
             if (rawValue != null) {
@@ -48,11 +51,7 @@ class CurrencyService {
         });
 
         // TRY her zaman 1.0
-        rates['TRY'] = ExchangeRate(
-          code: 'TRY',
-          rate: 1.0,
-          lastUpdated: now,
-        );
+        rates['TRY'] = ExchangeRate(code: 'TRY', rate: 1.0, lastUpdated: now);
 
         return rates;
       } else {
@@ -78,7 +77,7 @@ class CurrencyService {
         String cleaned = value.replaceAll('.', '').replaceAll(',', '.');
         return double.tryParse(cleaned);
       }
-      
+
       // Sadece virgül varsa ondalıktır (örn: "32,54")
       if (value.contains(',')) {
         return double.tryParse(value.replaceAll(',', '.'));

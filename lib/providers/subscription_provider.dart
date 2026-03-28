@@ -1,10 +1,11 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/subscription.dart';
 import '../services/storage_service.dart';
 
-final subscriptionProvider = StateNotifierProvider<SubscriptionNotifier, List<Subscription>>((ref) {
-  return SubscriptionNotifier();
-});
+final subscriptionProvider =
+    StateNotifierProvider<SubscriptionNotifier, List<Subscription>>((ref) {
+      return SubscriptionNotifier();
+    });
 
 class SubscriptionNotifier extends StateNotifier<List<Subscription>> {
   SubscriptionNotifier() : super([]) {

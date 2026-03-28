@@ -15,14 +15,20 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'), (methodCall) async {
-        return null;
-    });
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (methodCall) async {
+            return null;
+          },
+        );
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (methodCall) async {
-        return '.';
-    });
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (methodCall) async {
+            return '.';
+          },
+        );
 
     // Initialize Hive for tests in a temporary directory
     final tempDir = Directory.systemTemp.createTempSync();
@@ -65,7 +71,7 @@ void main() {
       );
 
       container.read(accountProvider.notifier).addAccount(account);
-      
+
       final accounts = container.read(accountProvider);
       expect(accounts.length, 1);
       expect(accounts.first.name, 'Test Account');
@@ -87,11 +93,11 @@ void main() {
       );
 
       container.read(accountProvider.notifier).addAccount(account);
-      
+
       account.name = 'Updated Account';
       account.balance = 2000.0;
       container.read(accountProvider.notifier).updateAccount(account);
-      
+
       final accounts = container.read(accountProvider);
       expect(accounts.first.name, 'Updated Account');
       expect(accounts.first.balance, 2000.0);
@@ -113,7 +119,7 @@ void main() {
 
       container.read(accountProvider.notifier).addAccount(account);
       expect(container.read(accountProvider).length, 1);
-      
+
       container.read(accountProvider.notifier).deleteAccount('1');
       expect(container.read(accountProvider), isEmpty);
     });
@@ -133,11 +139,11 @@ void main() {
       );
 
       container.read(accountProvider.notifier).addAccount(account);
-      
+
       // Add balance
       container.read(accountProvider.notifier).adjustBalance('1', 500.0);
       expect(container.read(accountProvider).first.balance, 1500.0);
-      
+
       // Subtract balance
       container.read(accountProvider.notifier).adjustBalance('1', -200.0);
       expect(container.read(accountProvider).first.balance, 1300.0);

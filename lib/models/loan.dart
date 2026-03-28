@@ -1,4 +1,4 @@
-﻿import 'package:hive/hive.dart';
+import 'package:hive/hive.dart';
 
 part 'loan.g.dart';
 
@@ -43,11 +43,15 @@ class Loan extends HiveObject {
   @HiveField(12)
   DateTime updatedAt;
 
-  @HiveField(13)
+  @HiveField(14)
+  String userId;
+
+  @HiveField(15)
   bool isCompleted;
 
   Loan({
     required this.id,
+    required this.userId,
     required this.name,
     required this.bank,
     required this.type,

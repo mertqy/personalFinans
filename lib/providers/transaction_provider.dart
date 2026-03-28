@@ -7,9 +7,10 @@ import 'account_provider.dart';
 import 'credit_card_provider.dart';
 import 'budget_provider.dart';
 
-final transactionProvider = StateNotifierProvider<TransactionNotifier, List<Transaction>>((ref) {
-  return TransactionNotifier(ref);
-});
+final transactionProvider =
+    StateNotifierProvider<TransactionNotifier, List<Transaction>>((ref) {
+      return TransactionNotifier(ref);
+    });
 
 class TransactionNotifier extends StateNotifier<List<Transaction>> {
   final Ref _ref;
@@ -20,12 +21,15 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
   }
 
   void loadTransactions() {
-    state = StorageService.getTransactions()..sort((a, b) => b.date.compareTo(a.date));
+    state = StorageService.getTransactions()
+      ..sort((a, b) => b.date.compareTo(a.date));
   }
 
   String _getAccountCurrency(String accountId) {
     try {
-      final acc = _ref.read(accountProvider).firstWhere((a) => a.id == accountId);
+      final acc = _ref
+          .read(accountProvider)
+          .firstWhere((a) => a.id == accountId);
       return acc.currency;
     } catch (_) {
       return 'TRY';
@@ -34,8 +38,12 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
 
   String _getCardAccountCurrency(String cardId) {
     try {
-      final card = _ref.read(creditCardProvider).firstWhere((c) => c.id == cardId);
-      final acc = _ref.read(accountProvider).firstWhere((a) => a.id == card.accountId);
+      final card = _ref
+          .read(creditCardProvider)
+          .firstWhere((c) => c.id == cardId);
+      final acc = _ref
+          .read(accountProvider)
+          .firstWhere((a) => a.id == card.accountId);
       return acc.currency;
     } catch (_) {
       return 'TRY';
@@ -43,37 +51,59 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
   }
 
   void _applyEffect(Transaction tx) {
-    if (tx.isPlanned) return; 
-    
-    final sourceCurrency = tx.creditCardId != null 
+    if (tx.isPlanned) return;
+
+    final sourceCurrency = tx.creditCardId != null
         ? _getCardAccountCurrency(tx.creditCardId!)
         : _getAccountCurrency(tx.accountId);
 
     if (tx.type == 'expense') {
       if (tx.creditCardId != null) {
-        _ref.read(creditCardProvider.notifier).adjustDebt(tx.creditCardId!, tx.amount);
+        _ref
+            .read(creditCardProvider.notifier)
+            .adjustDebt(tx.creditCardId!, tx.amount);
       } else {
-        _ref.read(accountProvider.notifier).adjustBalance(tx.accountId, -tx.amount);
+        _ref
+            .read(accountProvider.notifier)
+            .adjustBalance(tx.accountId, -tx.amount);
       }
     } else if (tx.type == 'income') {
-      _ref.read(accountProvider.notifier).adjustBalance(tx.accountId, tx.amount);
+      _ref
+          .read(accountProvider.notifier)
+          .adjustBalance(tx.accountId, tx.amount);
     } else if (tx.type == 'transfer') {
       // Çıkan taraftan parayı çıkar
       if (tx.creditCardId != null) {
-        _ref.read(creditCardProvider.notifier).adjustDebt(tx.creditCardId!, tx.amount);
+        _ref
+            .read(creditCardProvider.notifier)
+            .adjustDebt(tx.creditCardId!, tx.amount);
       } else {
-        _ref.read(accountProvider.notifier).adjustBalance(tx.accountId, -tx.amount);
+        _ref
+            .read(accountProvider.notifier)
+            .adjustBalance(tx.accountId, -tx.amount);
       }
-      
+
       // Giren hesap veya hedef
       if (tx.toAccountId != null) {
         final destCurrency = _getAccountCurrency(tx.toAccountId!);
-        final convertedAmount = AppUtils.convertToBaseCurrency(tx.amount, sourceCurrency, destCurrency);
-        _ref.read(accountProvider.notifier).adjustBalance(tx.toAccountId!, convertedAmount);
+        final convertedAmount = AppUtils.convertToBaseCurrency(
+          tx.amount,
+          sourceCurrency,
+          destCurrency,
+        );
+        _ref
+            .read(accountProvider.notifier)
+            .adjustBalance(tx.toAccountId!, convertedAmount);
       } else if (tx.toGoalId != null) {
         // Hedefler TRY bazında
-        final convertedAmount = AppUtils.convertToBaseCurrency(tx.amount, sourceCurrency, 'TRY');
-        _ref.read(goalProvider.notifier).adjustGoalAmount(tx.toGoalId!, convertedAmount);
+        final convertedAmount = AppUtils.convertToBaseCurrency(
+          tx.amount,
+          sourceCurrency,
+          'TRY',
+        );
+        _ref
+            .read(goalProvider.notifier)
+            .adjustGoalAmount(tx.toGoalId!, convertedAmount);
       }
     }
   }
@@ -81,34 +111,56 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
   void _revertEffect(Transaction tx) {
     if (tx.isPlanned) return;
 
-    final sourceCurrency = tx.creditCardId != null 
+    final sourceCurrency = tx.creditCardId != null
         ? _getCardAccountCurrency(tx.creditCardId!)
         : _getAccountCurrency(tx.accountId);
 
     if (tx.type == 'expense') {
       if (tx.creditCardId != null) {
-        _ref.read(creditCardProvider.notifier).adjustDebt(tx.creditCardId!, -tx.amount);
+        _ref
+            .read(creditCardProvider.notifier)
+            .adjustDebt(tx.creditCardId!, -tx.amount);
       } else {
-        _ref.read(accountProvider.notifier).adjustBalance(tx.accountId, tx.amount);
+        _ref
+            .read(accountProvider.notifier)
+            .adjustBalance(tx.accountId, tx.amount);
       }
     } else if (tx.type == 'income') {
-      _ref.read(accountProvider.notifier).adjustBalance(tx.accountId, -tx.amount);
+      _ref
+          .read(accountProvider.notifier)
+          .adjustBalance(tx.accountId, -tx.amount);
     } else if (tx.type == 'transfer') {
       // Revert çıkan taraf
       if (tx.creditCardId != null) {
-        _ref.read(creditCardProvider.notifier).adjustDebt(tx.creditCardId!, -tx.amount);
+        _ref
+            .read(creditCardProvider.notifier)
+            .adjustDebt(tx.creditCardId!, -tx.amount);
       } else {
-        _ref.read(accountProvider.notifier).adjustBalance(tx.accountId, tx.amount);
+        _ref
+            .read(accountProvider.notifier)
+            .adjustBalance(tx.accountId, tx.amount);
       }
-      
+
       // Revert giren taraf
       if (tx.toAccountId != null) {
         final destCurrency = _getAccountCurrency(tx.toAccountId!);
-        final convertedAmount = AppUtils.convertToBaseCurrency(tx.amount, sourceCurrency, destCurrency);
-        _ref.read(accountProvider.notifier).adjustBalance(tx.toAccountId!, -convertedAmount);
+        final convertedAmount = AppUtils.convertToBaseCurrency(
+          tx.amount,
+          sourceCurrency,
+          destCurrency,
+        );
+        _ref
+            .read(accountProvider.notifier)
+            .adjustBalance(tx.toAccountId!, -convertedAmount);
       } else if (tx.toGoalId != null) {
-        final convertedAmount = AppUtils.convertToBaseCurrency(tx.amount, sourceCurrency, 'TRY');
-        _ref.read(goalProvider.notifier).adjustGoalAmount(tx.toGoalId!, -convertedAmount);
+        final convertedAmount = AppUtils.convertToBaseCurrency(
+          tx.amount,
+          sourceCurrency,
+          'TRY',
+        );
+        _ref
+            .read(goalProvider.notifier)
+            .adjustGoalAmount(tx.toGoalId!, -convertedAmount);
       }
     }
   }
@@ -135,18 +187,21 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
   }
 
   void updateTransaction(Transaction newTx) {
-    final oldTx = StorageService.getTransactions().firstWhere((tx) => tx.id == newTx.id, orElse: () => newTx);
-    
+    final oldTx = StorageService.getTransactions().firstWhere(
+      (tx) => tx.id == newTx.id,
+      orElse: () => newTx,
+    );
+
     // Check if updated transaction is valid
     // Note: Revert makes it safer to check.
     // In update, it's better to check AFTER revert.
-    
+
     _revertEffect(oldTx);
-    
+
     if (!_canApply(newTx)) {
-       // Re-apply old because new failed
-       _applyEffect(oldTx);
-       return;
+      // Re-apply old because new failed
+      _applyEffect(oldTx);
+      return;
     }
 
     StorageService.updateTransaction(newTx);
@@ -172,22 +227,29 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
   void processRecurring() {
     final now = DateTime.now();
     bool hasNew = false;
-    
+
     // 1. İşlem bazlı tekrarlananlar (Transaction Templates)
     final transactions = StorageService.getTransactions();
     final recurringMap = <String, Transaction>{};
     for (var tx in transactions) {
-      if (tx.isRecurring == true && tx.isPlanned == false && tx.recurringFrequency != null) {
-        final key = '${tx.category}_${tx.description}_${tx.accountId}_${tx.creditCardId ?? ''}';
-        if (!recurringMap.containsKey(key) || tx.date.isAfter(recurringMap[key]!.date)) {
-          recurringMap[key] = tx; 
+      if (tx.isRecurring == true &&
+          tx.isPlanned == false &&
+          tx.recurringFrequency != null) {
+        final key =
+            '${tx.category}_${tx.description}_${tx.accountId}_${tx.creditCardId ?? ''}';
+        if (!recurringMap.containsKey(key) ||
+            tx.date.isAfter(recurringMap[key]!.date)) {
+          recurringMap[key] = tx;
         }
       }
     }
 
     recurringMap.forEach((key, lastTx) {
-      DateTime nextOccur = _calculateNextDate(lastTx.date, lastTx.recurringFrequency!);
-      
+      DateTime nextOccur = _calculateNextDate(
+        lastTx.date,
+        lastTx.recurringFrequency!,
+      );
+
       while (nextOccur.isBefore(now) || _isSameDay(nextOccur, now)) {
         final newTx = Transaction(
           id: AppUtils.generateId(),
@@ -207,7 +269,7 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        
+
         if (_canApply(newTx)) {
           StorageService.addTransaction(newTx);
           _applyEffect(newTx);
@@ -229,13 +291,26 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
       DateTime checkDate;
       if (sub.lastProcessedAt == null) {
         // İlk işlem: Oluşturulma tarihindeki ayın billingDay'ini kontrol et
-        checkDate = DateTime(sub.createdAt.year, sub.createdAt.month, sub.billingDay);
+        checkDate = DateTime(
+          sub.createdAt.year,
+          sub.createdAt.month,
+          sub.billingDay,
+        );
         // Eğer billingDay oluşturulma gününden önceyse, o ayı atla (abonelik yeni başladı)
-        if (checkDate.isBefore(sub.createdAt) && !_isSameDay(checkDate, sub.createdAt)) {
-          checkDate = _calculateNextSubscriptionDate(checkDate, sub.billingDay, sub.frequency);
+        if (checkDate.isBefore(sub.createdAt) &&
+            !_isSameDay(checkDate, sub.createdAt)) {
+          checkDate = _calculateNextSubscriptionDate(
+            checkDate,
+            sub.billingDay,
+            sub.frequency,
+          );
         }
       } else {
-        checkDate = _calculateNextSubscriptionDate(sub.lastProcessedAt!, sub.billingDay, sub.frequency);
+        checkDate = _calculateNextSubscriptionDate(
+          sub.lastProcessedAt!,
+          sub.billingDay,
+          sub.frequency,
+        );
       }
 
       while (checkDate.isBefore(now) || _isSameDay(checkDate, now)) {
@@ -261,7 +336,11 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
           sub.lastProcessedAt = checkDate;
           sub.save();
           hasNew = true;
-          checkDate = _calculateNextSubscriptionDate(checkDate, sub.billingDay, sub.frequency);
+          checkDate = _calculateNextSubscriptionDate(
+            checkDate,
+            sub.billingDay,
+            sub.frequency,
+          );
         } else {
           break; // Bakiye yetersizse dur
         }
@@ -274,7 +353,11 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
     }
   }
 
-  DateTime _calculateNextSubscriptionDate(DateTime lastDate, int billingDay, String frequency) {
+  DateTime _calculateNextSubscriptionDate(
+    DateTime lastDate,
+    int billingDay,
+    String frequency,
+  ) {
     if (frequency == 'yearly') {
       return DateTime(lastDate.year + 1, lastDate.month, billingDay);
     } else {
@@ -285,11 +368,11 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
         nextMonth = 1;
         nextYear++;
       }
-      
+
       // Ayın günü validasyonu (örn: 31 çekmeyen aylar)
       int lastDayOfMonth = DateTime(nextYear, nextMonth + 1, 0).day;
       int day = billingDay > lastDayOfMonth ? lastDayOfMonth : billingDay;
-      
+
       return DateTime(nextYear, nextMonth, day);
     }
   }
@@ -308,7 +391,11 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
           nextYear++;
         }
         int lastDay = DateTime(nextYear, nextMonth + 1, 0).day;
-        return DateTime(nextYear, nextMonth, date.day > lastDay ? lastDay : date.day);
+        return DateTime(
+          nextYear,
+          nextMonth,
+          date.day > lastDay ? lastDay : date.day,
+        );
       case 'yearly':
         return DateTime(date.year + 1, date.month, date.day);
       default:

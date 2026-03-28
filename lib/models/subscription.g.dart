@@ -1,4 +1,4 @@
-﻿// GENERATED CODE - DO NOT MODIFY BY HAND
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'subscription.dart';
 
@@ -30,13 +30,14 @@ class SubscriptionAdapter extends TypeAdapter<Subscription> {
       color: fields[10] as String,
       createdAt: fields[11] as DateTime,
       updatedAt: fields[12] as DateTime,
+      lastProcessedAt: fields[13] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Subscription obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -62,7 +63,9 @@ class SubscriptionAdapter extends TypeAdapter<Subscription> {
       ..writeByte(11)
       ..write(obj.createdAt)
       ..writeByte(12)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(13)
+      ..write(obj.lastProcessedAt);
   }
 
   @override

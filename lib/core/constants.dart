@@ -1,24 +1,84 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class AppConstants {
   static const List<Map<String, dynamic>> defaultCategories = [
     // Gelir Kategorileri
     {'id': 'income-salary', 'name': 'Maaş', 'icon': '💼', 'type': 'income'},
-    {'id': 'income-freelance', 'name': 'Serbest Çalışma', 'icon': '💻', 'type': 'income'},
-    {'id': 'income-investment', 'name': 'Yatırım', 'icon': '📈', 'type': 'income'},
-    {'id': 'income-other', 'name': 'Diğer Gelir', 'icon': '💰', 'type': 'income'},
+    {
+      'id': 'income-freelance',
+      'name': 'Serbest Çalışma',
+      'icon': '💻',
+      'type': 'income',
+    },
+    {
+      'id': 'income-investment',
+      'name': 'Yatırım',
+      'icon': '📈',
+      'type': 'income',
+    },
+    {
+      'id': 'income-other',
+      'name': 'Diğer Gelir',
+      'icon': '💰',
+      'type': 'income',
+    },
 
     // Gider Kategorileri
     {'id': 'expense-food', 'name': 'Yiyecek', 'icon': '🍽️', 'type': 'expense'},
-    {'id': 'expense-transport', 'name': 'Ulaşım', 'icon': '🚗', 'type': 'expense'},
-    {'id': 'expense-pet', 'name': 'Hayvan Bakımı', 'icon': '🐶', 'type': 'expense'},
-    {'id': 'expense-housing', 'name': 'Barınma', 'icon': '🏠', 'type': 'expense'},
-    {'id': 'expense-healthcare', 'name': 'Sağlık', 'icon': '🏥', 'type': 'expense'},
-    {'id': 'expense-entertainment', 'name': 'Eğlence', 'icon': '🎬', 'type': 'expense'},
-    {'id': 'expense-shopping', 'name': 'Alışveriş', 'icon': '🛍️', 'type': 'expense'},
-    {'id': 'expense-utilities', 'name': 'Faturalar', 'icon': '⚡', 'type': 'expense'},
-    {'id': 'expense-education', 'name': 'Eğitim', 'icon': '📚', 'type': 'expense'},
-    {'id': 'expense-other', 'name': 'Diğer Giderler', 'icon': '💸', 'type': 'expense'},
+    {
+      'id': 'expense-transport',
+      'name': 'Ulaşım',
+      'icon': '🚗',
+      'type': 'expense',
+    },
+    {
+      'id': 'expense-pet',
+      'name': 'Hayvan Bakımı',
+      'icon': '🐶',
+      'type': 'expense',
+    },
+    {
+      'id': 'expense-housing',
+      'name': 'Barınma',
+      'icon': '🏠',
+      'type': 'expense',
+    },
+    {
+      'id': 'expense-healthcare',
+      'name': 'Sağlık',
+      'icon': '🏥',
+      'type': 'expense',
+    },
+    {
+      'id': 'expense-entertainment',
+      'name': 'Eğlence',
+      'icon': '🎬',
+      'type': 'expense',
+    },
+    {
+      'id': 'expense-shopping',
+      'name': 'Alışveriş',
+      'icon': '🛍️',
+      'type': 'expense',
+    },
+    {
+      'id': 'expense-utilities',
+      'name': 'Faturalar',
+      'icon': '⚡',
+      'type': 'expense',
+    },
+    {
+      'id': 'expense-education',
+      'name': 'Eğitim',
+      'icon': '📚',
+      'type': 'expense',
+    },
+    {
+      'id': 'expense-other',
+      'name': 'Diğer Giderler',
+      'icon': '💸',
+      'type': 'expense',
+    },
   ];
 
   static const Map<String, Map<String, String>> currencies = {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -6,6 +7,7 @@ import '../providers/account_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/budget_provider.dart';
 import '../providers/credit_card_provider.dart';
+import '../providers/auth_provider.dart';
 
 import '../core/utils.dart';
 import '../providers/navigation_provider.dart';
@@ -13,6 +15,9 @@ import '../widgets/transaction_modal.dart';
 import '../providers/exchange_rate_provider.dart';
 import '../services/storage_service.dart';
 import '../widgets/mini_heatmap.dart';
+import '../widgets/auth_modal.dart';
+import '../widgets/membership_modal.dart';
+import '../widgets/premium_content_gate.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -32,30 +37,60 @@ class DashboardScreen extends ConsumerWidget {
     int budgetWarningCount = 0;
     for (final budget in budgets) {
       final spent = transactions
-          .where((tx) => tx.type == 'expense' && tx.category == budget.categoryId)
-          .where((tx) => tx.date.month == now.month && tx.date.year == now.year && !tx.isPlanned)
-          .fold(0.0, (sum, tx) => sum + AppUtils.getDisplayTRYAmount(tx, accounts, creditCards));
-      if (spent / (budget.amount == 0 ? 1 : budget.amount) >= 0.8) budgetWarningCount++;
+          .where(
+            (tx) => tx.type == 'expense' && tx.category == budget.categoryId,
+          )
+          .where(
+            (tx) =>
+                tx.date.month == now.month &&
+                tx.date.year == now.year &&
+                !tx.isPlanned,
+          )
+          .fold(
+            0.0,
+            (sum, tx) =>
+                sum + AppUtils.getDisplayTRYAmount(tx, accounts, creditCards),
+          );
+      if (spent / (budget.amount == 0 ? 1 : budget.amount) >= 0.8) {
+        budgetWarningCount++;
+      }
     }
 
     int cardReminderCount = 0;
     for (final card in creditCards) {
       if (card.currentDebt <= 0) continue;
       final dueDate = DateTime(now.year, now.month, card.dueDay);
-      final adjustedDue = dueDate.isBefore(today) ? DateTime(now.year, now.month + 1, card.dueDay) : dueDate;
+      final adjustedDue = dueDate.isBefore(today)
+          ? DateTime(now.year, now.month + 1, card.dueDay)
+          : dueDate;
       if (adjustedDue.difference(today).inDays <= 3) cardReminderCount++;
     }
 
-    final totalNotifications = plannedCount + budgetWarningCount + cardReminderCount;
-    
-    // Total Balance in TRY
-    double totalBalanceTRY = accounts.fold(0, (sum, acc) => sum + AppUtils.convertToBaseCurrency(acc.balance, acc.currency, 'TRY'));
-    
-    final recentTransactions = transactions.where((t) => !t.isPlanned).take(4).toList();
+    final totalNotifications =
+        plannedCount + budgetWarningCount + cardReminderCount;
 
-    final monthlyTransactions = transactions.where((t) =>
-        !t.isPlanned && t.date.month == now.month && t.date.year == now.year).toList();
-        
+    // Total Balance in TRY
+    double totalBalanceTRY = accounts.fold(
+      0,
+      (sum, acc) =>
+          sum +
+          AppUtils.convertToBaseCurrency(acc.balance, acc.currency, 'TRY'),
+    );
+
+    final recentTransactions = transactions
+        .where((t) => !t.isPlanned)
+        .take(4)
+        .toList();
+
+    final monthlyTransactions = transactions
+        .where(
+          (t) =>
+              !t.isPlanned &&
+              t.date.month == now.month &&
+              t.date.year == now.year,
+        )
+        .toList();
+
     double calculateMonthlyTotal(String type) {
       double totalTRY = 0.0;
       for (final tx in monthlyTransactions.where((t) => t.type == type)) {
@@ -72,11 +107,22 @@ class DashboardScreen extends ConsumerWidget {
     final monthlyIncomeTRY = calculateMonthlyTotal('income');
     final monthlyExpenseTRY = calculateMonthlyTotal('expense');
 
-    String userName = StorageService.settingsBox.get('user_name', defaultValue: 'Alex Johnson') as String;
-    if (userName.isEmpty) userName = 'Alex Johnson';
-    final userInitials = userName.isNotEmpty && userName.contains(' ') 
-        ? '${userName.split(' ')[0][0]}${userName.split(' ')[1][0]}' 
-        : (userName.isNotEmpty ? userName[0] : 'U');
+    final user = FirebaseAuth.instance.currentUser;
+    String userName = (user?.isAnonymous ?? true)
+        ? (StorageService.settingsBox.get('user_name', defaultValue: 'Misafir')
+              as String)
+        : (user?.displayName ??
+              StorageService.settingsBox.get(
+                    'user_name',
+                    defaultValue: 'Misafir',
+                  )
+                  as String);
+
+    if (userName.isEmpty) userName = 'Misafir';
+
+    final userInitials = userName.isNotEmpty && userName.contains(' ')
+        ? '${userName.split(' ')[0][0]}${userName.split(' ')[1][0]}'
+        : (userName.isNotEmpty ? userName[0] : 'M');
 
     // Matching Colors from provided image
     final bgColor = const Color(0xFF141724);
@@ -101,125 +147,240 @@ class DashboardScreen extends ConsumerWidget {
             children: [
               // Header Row
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'TEKRAR HOŞ GELDİN,',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        userName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Stack(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          gradient: purpleGradient,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF6B5BF2).withValues(alpha: 0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TEKRAR HOŞ GELDİN,',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
                             ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            userInitials,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            userName,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                      if (totalNotifications > 0)
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF6B6B),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: bgColor, width: 2),
+                      Row(
+                        children: [
+                          PopupMenuButton<int>(
+                            color: const Color(0xFF1C2235),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            offset: const Offset(0, 56),
+                            onSelected: (value) async {
+                              if (value == 0) {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (ctx) => const AuthModal(),
+                                );
+                              } else if (value == 1) {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (ctx) => const MembershipModal(),
+                                );
+                              } else if (value == 2) {
+                                final authService = ref.read(
+                                  authServiceProvider,
+                                );
+                                await authService.signOut();
+                                await StorageService.setSkipLogin(false);
+                                ref.read(skipLoginProvider.notifier).state =
+                                    false;
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              if (user?.isAnonymous ?? true)
+                                const PopupMenuItem(
+                                  value: 0,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.login,
+                                        color: Colors.white70,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Giriş Yap / Üye Ol',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              const PopupMenuItem(
+                                value: 1,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.star_border_rounded,
+                                      color: Colors.white70,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Üyeliğim',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (!(user?.isAnonymous ?? true))
+                                const PopupMenuItem(
+                                  value: 2,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.logout,
+                                        color: Colors.redAccent,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Çıkış Yap',
+                                        style: TextStyle(
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    gradient: purpleGradient,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      width: 1,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFF6B5BF2,
+                                        ).withValues(alpha: 0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      userInitials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (totalNotifications > 0)
+                                  Positioned(
+                                    top: -2,
+                                    right: -2,
+                                    child: Container(
+                                      width: 14,
+                                      height: 14,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF6B6B),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: bgColor,
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                        ),
+                        ],
+                      ),
                     ],
-                  ),
-                ],
-              ).animate().fade(duration: 400.ms).slide(begin: const Offset(0, -0.2)),
+                  )
+                  .animate()
+                  .fade(duration: 400.ms)
+                  .slide(begin: const Offset(0, -0.2)),
               const SizedBox(height: 24),
 
               // Total Balance Card
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: purpleGradient,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6B5BF2).withValues(alpha: 0.3),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Toplam Varlık',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          AppUtils.formatCurrency(totalBalanceTRY, currency: 'TRY'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -1,
-                          ),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: purpleGradient,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF6B5BF2).withValues(alpha: 0.3),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
-                    _buildRatesPillRow(ref),
-                  ],
-                ),
-              ).animate(delay: 100.ms).fade(duration: 500.ms).scale(begin: const Offset(0.95, 0.95), curve: Curves.easeOutBack),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Toplam Varlık',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              AppUtils.formatCurrency(
+                                totalBalanceTRY,
+                                currency: 'TRY',
+                              ),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -1,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        _buildRatesPillRow(ref),
+                      ],
+                    ),
+                  )
+                  .animate(delay: 100.ms)
+                  .fade(duration: 500.ms)
+                  .scale(
+                    begin: const Offset(0.95, 0.95),
+                    curve: Curves.easeOutBack,
+                  ),
               const SizedBox(height: 16),
 
               // Income / Expense Row
@@ -232,7 +393,8 @@ class DashboardScreen extends ConsumerWidget {
                           context: context,
                           isScrollControlled: true,
                           backgroundColor: Colors.transparent,
-                          builder: (context) => const TransactionModal(initialType: 'income'),
+                          builder: (context) =>
+                              const TransactionModal(initialType: 'income'),
                         );
                       },
                       child: Container(
@@ -240,7 +402,10 @@ class DashboardScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: incomeBoxColor,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: incomeButtonColor.withValues(alpha: 0.1), width: 1),
+                          border: Border.all(
+                            color: incomeButtonColor.withValues(alpha: 0.1),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -275,7 +440,11 @@ class DashboardScreen extends ConsumerWidget {
                                 color: incomeButtonColor,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.add, color: Colors.white, size: 20),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                           ],
                         ),
@@ -290,7 +459,8 @@ class DashboardScreen extends ConsumerWidget {
                           context: context,
                           isScrollControlled: true,
                           backgroundColor: Colors.transparent,
-                          builder: (context) => const TransactionModal(initialType: 'expense'),
+                          builder: (context) =>
+                              const TransactionModal(initialType: 'expense'),
                         );
                       },
                       child: Container(
@@ -298,7 +468,10 @@ class DashboardScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: expenseBoxColor,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: expenseButtonColor.withValues(alpha: 0.1), width: 1),
+                          border: Border.all(
+                            color: expenseButtonColor.withValues(alpha: 0.1),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -333,7 +506,11 @@ class DashboardScreen extends ConsumerWidget {
                                 color: expenseButtonColor,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.remove, color: Colors.white, size: 20), // changed to remove for expense consistency (optional but good)
+                              child: const Icon(
+                                Icons.remove,
+                                color: Colors.white,
+                                size: 20,
+                              ), // changed to remove for expense consistency (optional but good)
                             ),
                           ],
                         ),
@@ -344,7 +521,7 @@ class DashboardScreen extends ConsumerWidget {
               ).animate(delay: 200.ms).fade(duration: 400.ms).slideX(begin: 0.1),
               const SizedBox(height: 24),
 
-              // Harcama Lokasyonları 
+              // Harcama Lokasyonları
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -365,43 +542,94 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     // Embedded Map
-                    const MiniHeatmap(),
-                    const SizedBox(height: 16),
-                    // Real location transactions
-                    if (transactions.where((tx) => tx.locationLat != null && tx.locationLng != null).isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        child: Center(
-                          child: Text("Henüz konum verili harcama yok.", style: TextStyle(color: Colors.white54, fontSize: 13)),
-                        ),
-                      )
-                    else 
-                      ...transactions
-                        .where((tx) => tx.locationLat != null && tx.locationLng != null)
-                        .take(3)
-                        .map((tx) {
-                          final locationList = transactions.where((tx) => tx.locationLat != null && tx.locationLng != null).take(3).toList();
-                          final isLast = tx == locationList.last;
-                          final convertedAmount = AppUtils.getDisplayTRYAmount(tx, accounts, []); 
-                          final displayCurrency = tx.type == 'transfer' ? AppUtils.getEffectiveCurrency(tx, accounts, []) : 'TRY';
-
-                          return Column(
-                            children: [
-                              _buildLocationItem(
-                                Icons.location_on_outlined, 
-                                tx.description.isNotEmpty ? tx.description : AppUtils.getCategoryName(tx.category), 
-                                '${DateFormat('d MMM', 'tr_TR').format(tx.date)} • ${AppUtils.getCategoryName(tx.category)}', 
-                                '${tx.type == 'income' ? '+' : '-'}${AppUtils.formatCurrency(convertedAmount, currency: displayCurrency)}',
-                                tx.type == 'income' ? const Color(0xFF00D287) : const Color(0xFFFF4B65),
-                              ),
-                              if (!isLast)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Divider(color: Colors.white12, height: 1),
+                    PremiumContentGate(
+                      child: Column(
+                        children: [
+                          const MiniHeatmap(),
+                          const SizedBox(height: 16),
+                          // Real location transactions
+                          if (transactions
+                              .where(
+                                (tx) =>
+                                    tx.locationLat != null &&
+                                    tx.locationLng != null,
+                              )
+                              .isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              child: Center(
+                                child: Text(
+                                  "Henüz konum verili harcama yok.",
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 13,
+                                  ),
                                 ),
-                            ],
-                          );
-                        }),
+                              ),
+                            )
+                          else
+                            ...transactions
+                                .where(
+                                  (tx) =>
+                                      tx.locationLat != null &&
+                                      tx.locationLng != null,
+                                )
+                                .take(3)
+                                .map((tx) {
+                                  final locationList = transactions
+                                      .where(
+                                        (tx) =>
+                                            tx.locationLat != null &&
+                                            tx.locationLng != null,
+                                      )
+                                      .take(3)
+                                      .toList();
+                                  final isLast = tx == locationList.last;
+                                  final convertedAmount =
+                                      AppUtils.getDisplayTRYAmount(
+                                        tx,
+                                        accounts,
+                                        [],
+                                      );
+                                  final displayCurrency = tx.type == 'transfer'
+                                      ? AppUtils.getEffectiveCurrency(
+                                          tx,
+                                          accounts,
+                                          [],
+                                        )
+                                      : 'TRY';
+ 
+                                  return Column(
+                                    children: [
+                                      _buildLocationItem(
+                                        Icons.location_on_outlined,
+                                        tx.description.isNotEmpty
+                                            ? tx.description
+                                            : AppUtils.getCategoryName(
+                                                tx.category,
+                                              ),
+                                        '${DateFormat('d MMM', 'tr_TR').format(tx.date)} • ${AppUtils.getCategoryName(tx.category)}',
+                                        '${tx.type == 'income' ? '+' : '-'}${AppUtils.formatCurrency(convertedAmount, currency: displayCurrency)}',
+                                        tx.type == 'income'
+                                            ? const Color(0xFF00D287)
+                                            : const Color(0xFFFF4B65),
+                                      ),
+                                      if (!isLast)
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 8.0,
+                                          ),
+                                          child: Divider(
+                                            color: Colors.white12,
+                                            height: 1,
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                }),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ).animate(delay: 300.ms).fade(duration: 400.ms).slideY(begin: 0.1),
@@ -435,7 +663,12 @@ class DashboardScreen extends ConsumerWidget {
                           },
                           child: Text(
                             'Tümünü Gör',
-                            style: TextStyle(color: const Color(0xFF6B5BF2).withValues(alpha: 0.8), fontSize: 13),
+                            style: TextStyle(
+                              color: const Color(
+                                0xFF6B5BF2,
+                              ).withValues(alpha: 0.8),
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
@@ -444,16 +677,36 @@ class DashboardScreen extends ConsumerWidget {
                     recentTransactions.isEmpty
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 20),
-                            child: Center(child: Text("Henüz işlem yok.", style: TextStyle(color: Colors.white54))),
+                            child: Center(
+                              child: Text(
+                                "Henüz işlem yok.",
+                                style: TextStyle(color: Colors.white54),
+                              ),
+                            ),
                           )
                         : Column(
                             children: recentTransactions.map((tx) {
                               final isIncome = tx.type == 'income';
-                              final convertedAmount = AppUtils.getDisplayTRYAmount(tx, accounts, creditCards); 
-                              final displayCurrency = tx.type == 'transfer' ? AppUtils.getEffectiveCurrency(tx, accounts, creditCards) : 'TRY';
-                              
-                              Color iconColor = isIncome ? const Color(0xFF00D287) : const Color(0xFFFF4B65);
-                              if (tx.type == 'transfer') iconColor = const Color(0xFF4A89F3);
+                              final convertedAmount =
+                                  AppUtils.getDisplayTRYAmount(
+                                    tx,
+                                    accounts,
+                                    creditCards,
+                                  );
+                              final displayCurrency = tx.type == 'transfer'
+                                  ? AppUtils.getEffectiveCurrency(
+                                      tx,
+                                      accounts,
+                                      creditCards,
+                                    )
+                                  : 'TRY';
+
+                              Color iconColor = isIncome
+                                  ? const Color(0xFF00D287)
+                                  : const Color(0xFFFF4B65);
+                              if (tx.type == 'transfer') {
+                                iconColor = const Color(0xFF4A89F3);
+                              }
 
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 16.0),
@@ -463,7 +716,8 @@ class DashboardScreen extends ConsumerWidget {
                                       context: context,
                                       isScrollControlled: true,
                                       backgroundColor: Colors.transparent,
-                                      builder: (context) => TransactionModal(transaction: tx),
+                                      builder: (context) =>
+                                          TransactionModal(transaction: tx),
                                     );
                                   },
                                   child: Row(
@@ -472,27 +726,53 @@ class DashboardScreen extends ConsumerWidget {
                                         width: 44,
                                         height: 44,
                                         decoration: BoxDecoration(
-                                          color: iconColor.withValues(alpha: 0.1),
+                                          color: iconColor.withValues(
+                                            alpha: 0.1,
+                                          ),
                                           shape: BoxShape.circle,
-                                          border: Border.all(color: iconColor.withValues(alpha: 0.2), width: 1),
+                                          border: Border.all(
+                                            color: iconColor.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                            width: 1,
+                                          ),
                                         ),
                                         child: Center(
-                                          child: Text(AppUtils.getCategoryIcon(tx.category), style: const TextStyle(fontSize: 20)),
+                                          child: Text(
+                                            AppUtils.getCategoryIcon(
+                                              tx.category,
+                                            ),
+                                            style: const TextStyle(
+                                              fontSize: 20,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 16),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              tx.description.isNotEmpty ? tx.description : AppUtils.getCategoryName(tx.category),
-                                              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                              tx.description.isNotEmpty
+                                                  ? tx.description
+                                                  : AppUtils.getCategoryName(
+                                                      tx.category,
+                                                    ),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
                                               '${DateFormat('d MMM yyyy', 'tr_TR').format(tx.date)} • ${DateFormat('HH:mm').format(tx.date)}',
-                                              style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                              style: const TextStyle(
+                                                color: Colors.white54,
+                                                fontSize: 12,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -500,7 +780,9 @@ class DashboardScreen extends ConsumerWidget {
                                       Text(
                                         '${tx.type == 'income' ? '+' : (tx.type == 'expense' ? '-' : '')}${AppUtils.formatCurrency(convertedAmount, currency: displayCurrency)}',
                                         style: TextStyle(
-                                          color: isIncome ? const Color(0xFF00D287) : const Color(0xFFFF4B65),
+                                          color: isIncome
+                                              ? const Color(0xFF00D287)
+                                              : const Color(0xFFFF4B65),
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -528,7 +810,8 @@ class DashboardScreen extends ConsumerWidget {
                           context: context,
                           isScrollControlled: true,
                           backgroundColor: Colors.transparent,
-                          builder: (c) => const TransactionModal(initialType: 'expense'),
+                          builder: (c) =>
+                              const TransactionModal(initialType: 'expense'),
                         );
                       },
                     ),
@@ -543,7 +826,8 @@ class DashboardScreen extends ConsumerWidget {
                           context: context,
                           isScrollControlled: true,
                           backgroundColor: Colors.transparent,
-                          builder: (c) => const TransactionModal(initialType: 'transfer'),
+                          builder: (c) =>
+                              const TransactionModal(initialType: 'transfer'),
                         );
                       },
                     ),
@@ -558,34 +842,65 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLocationItem(IconData icon, String title, String subtitle, String amount, [Color amountColor = Colors.white]) {
+  Widget _buildLocationItem(
+    IconData icon,
+    String title,
+    String subtitle,
+    String amount, [
+    Color amountColor = Colors.white,
+  ]) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF6B5BF2).withValues(alpha: 0.7), size: 24),
+        Icon(
+          icon,
+          color: const Color(0xFF6B5BF2).withValues(alpha: 0.7),
+          size: 24,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
             ],
           ),
         ),
-        Text(amount, style: TextStyle(color: amountColor, fontSize: 15, fontWeight: FontWeight.bold)),
+        Text(
+          amount,
+          style: TextStyle(
+            color: amountColor,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildLargeActionBtn({required String title, required IconData icon, required VoidCallback onTap}) {
+  Widget _buildLargeActionBtn({
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(32),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24),
         decoration: BoxDecoration(
-          color: const Color(0xFF141724), 
+          color: const Color(0xFF141724),
           borderRadius: BorderRadius.circular(32),
           border: Border.all(color: const Color(0xFF282B3E), width: 1),
         ),
@@ -604,7 +919,12 @@ class DashboardScreen extends ConsumerWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600, height: 1.3),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
             ),
           ],
         ),
@@ -614,14 +934,20 @@ class DashboardScreen extends ConsumerWidget {
 
   Widget _buildRatesPillRow(WidgetRef ref) {
     final ratesState = ref.watch(exchangeRateProvider);
-    final usdRate = ratesState.where((r) => r.code == 'USD').firstOrNull?.rate ?? AppUtils.exchangeRates['USD'] ?? 32.95;
-    final goldRate = ratesState.where((r) => r.code == 'GOLD').firstOrNull?.rate ?? AppUtils.exchangeRates['GOLD'] ?? 2342;
+    final usdRate =
+        ratesState.where((r) => r.code == 'USD').firstOrNull?.rate ??
+        AppUtils.exchangeRates['USD'] ??
+        32.95;
+    final goldRate =
+        ratesState.where((r) => r.code == 'GOLD').firstOrNull?.rate ??
+        AppUtils.exchangeRates['GOLD'] ??
+        2342;
 
     return Row(
       children: [
         _buildRatePill('USD/TRY', usdRate.toStringAsFixed(2), true),
         const SizedBox(width: 8),
-        _buildRatePill('ALTIN/USD', '\$${goldRate.toStringAsFixed(0)}', false),
+        _buildRatePill('ALTIN/TRY', '₺${goldRate.toStringAsFixed(2)}', true),
       ],
     );
   }
@@ -638,12 +964,20 @@ class DashboardScreen extends ConsumerWidget {
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(width: 6),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(width: 4),
           Icon(

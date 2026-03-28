@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/credit_card_provider.dart';
 import '../../providers/account_provider.dart';
 import '../../core/utils.dart';
+import '../../core/premium_limits.dart';
 import '../../widgets/add_card_modal.dart';
+import '../../widgets/premium_gate.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class CardsTab extends ConsumerWidget {
@@ -19,13 +21,32 @@ class CardsTab extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.credit_card_outlined, size: 64, color: Colors.grey),
+                const Icon(
+                  Icons.credit_card_outlined,
+                  size: 64,
+                  color: Colors.grey,
+                ),
                 const SizedBox(height: 16),
-                const Text('Henüz bir kredi kartı eklemediniz.', style: TextStyle(color: Colors.grey)),
+                const Text(
+                  'Henüz bir kredi kartı eklemediniz.',
+                  style: TextStyle(color: Colors.grey),
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (c) => const AddCardModal());
+                  onPressed: () async {
+                    final allowed = await PremiumGate.check(
+                      context: context,
+                      ref: ref,
+                      currentCount: cards.length,
+                      freeLimit: PremiumLimits.freeCreditCardLimit,
+                    );
+                    if (!allowed || !context.mounted) return;
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (c) => const AddCardModal(),
+                    );
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Kart Ekle'),
@@ -36,20 +57,35 @@ class CardsTab extends ConsumerWidget {
         : ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: cards.length + 1,
-            separatorBuilder: (context, index) => const SizedBox(height: 0), // No separator needed between cards
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: 0), // No separator needed between cards
             itemBuilder: (context, index) {
               if (index == cards.length) {
                 return Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (c) => const AddCardModal());
+                    onPressed: () async {
+                      final allowed = await PremiumGate.check(
+                        context: context,
+                        ref: ref,
+                        currentCount: cards.length,
+                        freeLimit: PremiumLimits.freeCreditCardLimit,
+                      );
+                      if (!allowed || !context.mounted) return;
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (c) => const AddCardModal(),
+                      );
                     },
                     icon: const Icon(Icons.add),
                     label: const Text('Yeni Kart Ekle'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.all(16),
-                      side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                 );
@@ -57,8 +93,8 @@ class CardsTab extends ConsumerWidget {
 
               final card = cards[index];
               final availableLimit = card.limit - card.currentDebt;
-              final account = accounts.any((a) => a.id == card.accountId) 
-                  ? accounts.firstWhere((a) => a.id == card.accountId) 
+              final account = accounts.any((a) => a.id == card.accountId)
+                  ? accounts.firstWhere((a) => a.id == card.accountId)
                   : null;
               final bankName = account != null ? account.name : card.bank;
               final currency = account?.currency ?? '₺';
@@ -78,7 +114,9 @@ class CardsTab extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppUtils.hexToColor(card.color).withValues(alpha: 0.4),
+                      color: AppUtils.hexToColor(
+                        card.color,
+                      ).withValues(alpha: 0.4),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -90,13 +128,24 @@ class CardsTab extends ConsumerWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(bankName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(
+                          bankName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         Row(
                           children: [
                             const Icon(Icons.credit_card, color: Colors.white),
                             const SizedBox(width: 8),
                             PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, size: 20, color: Colors.white70),
+                              icon: const Icon(
+                                Icons.more_vert,
+                                size: 20,
+                                color: Colors.white70,
+                              ),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onSelected: (value) {
@@ -112,8 +161,17 @@ class CardsTab extends ConsumerWidget {
                                 }
                               },
                               itemBuilder: (context) => [
-                                const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
-                                const PopupMenuItem(value: 'delete', child: Text('Sil', style: TextStyle(color: Colors.red))),
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Düzenle'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text(
+                                    'Sil',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -121,7 +179,13 @@ class CardsTab extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    Text(card.name, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                    Text(
+                      card.name,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -129,36 +193,76 @@ class CardsTab extends ConsumerWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Limit', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                            const Text(
+                              'Limit',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
                             Text(
                               AppUtils.formatCurrency(
-                                AppUtils.convertToBaseCurrency(card.limit, currency, 'TRY'),
+                                AppUtils.convertToBaseCurrency(
+                                  card.limit,
+                                  currency,
+                                  'TRY',
+                                ),
                                 currency: 'TRY',
                               ),
-                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             if (currency != 'TRY')
                               Text(
-                                AppUtils.formatCurrency(card.limit, currency: currency),
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                AppUtils.formatCurrency(
+                                  card.limit,
+                                  currency: currency,
+                                ),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
                               ),
                           ],
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Text('Güncel Borç', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                            const Text(
+                              'Güncel Borç',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
                             Text(
                               AppUtils.formatCurrency(
-                                AppUtils.convertToBaseCurrency(card.currentDebt, currency, 'TRY'),
+                                AppUtils.convertToBaseCurrency(
+                                  card.currentDebt,
+                                  currency,
+                                  'TRY',
+                                ),
                                 currency: 'TRY',
                               ),
-                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             if (currency != 'TRY')
                               Text(
-                                AppUtils.formatCurrency(card.currentDebt, currency: currency),
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                AppUtils.formatCurrency(
+                                  card.currentDebt,
+                                  currency: currency,
+                                ),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
                               ),
                           ],
                         ),
@@ -166,9 +270,12 @@ class CardsTab extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     LinearProgressIndicator(
-                      value: card.currentDebt / (card.limit == 0 ? 1 : card.limit),
+                      value:
+                          card.currentDebt / (card.limit == 0 ? 1 : card.limit),
                       backgroundColor: Colors.white24,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.white,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -176,12 +283,22 @@ class CardsTab extends ConsumerWidget {
                       children: [
                         Text(
                           'Kullanılabilir: ${AppUtils.formatCurrency(AppUtils.convertToBaseCurrency(availableLimit, currency, 'TRY'), currency: 'TRY')}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         if (currency != 'TRY')
                           Text(
-                            AppUtils.formatCurrency(availableLimit, currency: currency),
-                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                            AppUtils.formatCurrency(
+                              availableLimit,
+                              currency: currency,
+                            ),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
                           ),
                       ],
                     ),
@@ -197,18 +314,26 @@ class CardsTab extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Kartı Sil'),
-        content: Text('${card.name} kartını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.'),
+        content: Text(
+          '${card.name} kartını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
           ElevatedButton(
             onPressed: () {
               ref.read(creditCardProvider.notifier).deleteCard(card.id);
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Kart silindi')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Kart silindi')));
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Sil'),
           ),
         ],

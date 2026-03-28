@@ -20,22 +20,27 @@ class SpendingHeatmap extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Only expense transactions from the already filtered set
-    final expenses = filteredTransactions.where((t) => t.type == 'expense').toList();
+    final expenses = filteredTransactions
+        .where((t) => t.type == 'expense')
+        .toList();
 
     // Determine the current month dates
     final now = DateTime.now();
     final currentMonth = now.month;
     final currentYear = now.year;
-    
+
     final lastDayOfMonth = DateTime(currentYear, currentMonth + 1, 0);
     final daysInMonth = lastDayOfMonth.day;
     final firstDayOfMonth = DateTime(currentYear, currentMonth, 1);
     final firstWeekday = firstDayOfMonth.weekday; // 1 (Mon) to 7 (Sun)
-    
+
     final totalWeeks = ((daysInMonth + firstWeekday - 2) ~/ 7) + 1;
 
     // Initialize data structure: 7 rows (days) x totalWeeks columns
-    List<List<double>> heatmapData = List.generate(7, (_) => List.filled(totalWeeks, 0.0));
+    List<List<double>> heatmapData = List.generate(
+      7,
+      (_) => List.filled(totalWeeks, 0.0),
+    );
     double maxAmount = 0.0;
 
     for (var tx in expenses) {
@@ -43,8 +48,12 @@ class SpendingHeatmap extends ConsumerWidget {
         int d = tx.date.day;
         int weekIndex = (d + firstWeekday - 2) ~/ 7;
         int weekdayIndex = tx.date.weekday - 1; // 0 for Mon, 6 for Sun
-        
-        final displayAmount = AppUtils.getDisplayTRYAmount(tx, accounts, creditCards);
+
+        final displayAmount = AppUtils.getDisplayTRYAmount(
+          tx,
+          accounts,
+          creditCards,
+        );
         heatmapData[weekdayIndex][weekIndex] += displayAmount;
         if (heatmapData[weekdayIndex][weekIndex] > maxAmount) {
           maxAmount = heatmapData[weekdayIndex][weekIndex];
@@ -67,15 +76,26 @@ class SpendingHeatmap extends ConsumerWidget {
 
     final dayLabels = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
     final monthNames = [
-      '', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+      '',
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
     ];
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF141724), 
+        color: const Color(0xFF141724),
         borderRadius: BorderRadius.circular(32),
       ),
       child: Column(
@@ -116,7 +136,7 @@ class SpendingHeatmap extends ConsumerWidget {
                       margin: const EdgeInsets.only(bottom: 6),
                       alignment: Alignment.centerRight,
                       child: Text(
-                        index % 2 == 0 ? dayLabels[index] : '', 
+                        index % 2 == 0 ? dayLabels[index] : '',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 11,
@@ -139,9 +159,15 @@ class SpendingHeatmap extends ConsumerWidget {
                             height: 18,
                             margin: const EdgeInsets.only(bottom: 6),
                             decoration: BoxDecoration(
-                              color: valid ? getColorForDensity(heatmapData[dayIndex][weekIndex]) : Colors.transparent,
+                              color: valid
+                                  ? getColorForDensity(
+                                      heatmapData[dayIndex][weekIndex],
+                                    )
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(4),
-                              border: valid ? null : Border.all(color: Colors.transparent),
+                              border: valid
+                                  ? null
+                                  : Border.all(color: Colors.transparent),
                             ),
                           );
                         }),
@@ -159,7 +185,10 @@ class SpendingHeatmap extends ConsumerWidget {
             children: [
               Text(
                 'Az',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 10,
+                ),
               ),
               const SizedBox(width: 8),
               _buildLegendNode(const Color(0xFF242B50)),
@@ -172,10 +201,13 @@ class SpendingHeatmap extends ConsumerWidget {
               const SizedBox(width: 8),
               Text(
                 'Çok',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 10,
+                ),
               ),
             ],
-          )
+          ),
         ],
       ),
     );

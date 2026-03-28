@@ -7,27 +7,51 @@ void main() {
   group('InsightsService Tests', () {
     test('calculateEndOfMonthForecast includes planned transactions', () {
       final now = DateTime.now();
-      
+
       final currentBalance = 1000.0;
 
       final transactions = [
         // Income planned before end of month
         Transaction(
-          id: '1', userId: 'u1', type: 'income', amount: 500, category: 'Maaş', 
-          description: 'Maaş', date: now.add(const Duration(days: 2)),
-          isPlanned: true, accountId: 'a1', createdAt: now, updatedAt: now
+          id: '1',
+          userId: 'u1',
+          type: 'income',
+          amount: 500,
+          category: 'Maaş',
+          description: 'Maaş',
+          date: now.add(const Duration(days: 2)),
+          isPlanned: true,
+          accountId: 'a1',
+          createdAt: now,
+          updatedAt: now,
         ),
         // Expense planned before end of month
         Transaction(
-          id: '2', userId: 'u1', type: 'expense', amount: 200, category: 'Fatura', 
-          description: 'Elektrik', date: now.add(const Duration(days: 4)),
-          isPlanned: true, accountId: 'a1', createdAt: now, updatedAt: now
+          id: '2',
+          userId: 'u1',
+          type: 'expense',
+          amount: 200,
+          category: 'Fatura',
+          description: 'Elektrik',
+          date: now.add(const Duration(days: 4)),
+          isPlanned: true,
+          accountId: 'a1',
+          createdAt: now,
+          updatedAt: now,
         ),
         // Planned income FOR NEXT MONTH (should not be included)
         Transaction(
-          id: '3', userId: 'u1', type: 'income', amount: 1000, category: 'Harçlık', 
-          description: 'Harçlık', date: DateTime(now.year, now.month + 1, 5),
-          isPlanned: true, accountId: 'a1', createdAt: now, updatedAt: now
+          id: '3',
+          userId: 'u1',
+          type: 'income',
+          amount: 1000,
+          category: 'Harçlık',
+          description: 'Harçlık',
+          date: DateTime(now.year, now.month + 1, 5),
+          isPlanned: true,
+          accountId: 'a1',
+          createdAt: now,
+          updatedAt: now,
         ),
       ];
 
@@ -44,14 +68,23 @@ void main() {
     test('calculateEndOfMonthForecast calculates recurring transactions', () {
       final now = DateTime.now();
       final currentBalance = 1000.0;
-      
+
       final transactions = [
         // A weekly recurring expense that happened earlier this month
         Transaction(
-          id: '1', userId: 'u1', type: 'expense', amount: 100, category: 'Market', 
-          description: 'Market Alışverişi', date: DateTime(now.year, now.month, 1),
-          isPlanned: false, isRecurring: true, recurringFrequency: 'weekly',
-          accountId: 'a1', createdAt: now, updatedAt: now
+          id: '1',
+          userId: 'u1',
+          type: 'expense',
+          amount: 100,
+          category: 'Market',
+          description: 'Market Alışverişi',
+          date: DateTime(now.year, now.month, 1),
+          isPlanned: false,
+          isRecurring: true,
+          recurringFrequency: 'weekly',
+          accountId: 'a1',
+          createdAt: now,
+          updatedAt: now,
         ),
       ];
 
@@ -69,16 +102,30 @@ void main() {
     test('calculateEndOfMonthForecast calculates subscriptions', () {
       final now = DateTime.now();
       final currentBalance = 1000.0;
-      
+
       // Let's assume today is the 10th of the month
       final billingDay = 25; // A subscription billed on the 25th of every month
-      
+
       final subscriptions = [
         Subscription(
-          id: '1', userId: 'u1', name: 'Netflix', amount: 200, category: 'Eğlence',
-          accountId: 'a1', billingDay: billingDay, frequency: 'monthly', isActive: true,
-          icon: 'netflix', color: '#ff0000', createdAt: DateTime(now.year, now.month - 1, 5), updatedAt: now,
-          lastProcessedAt: DateTime(now.year, now.month - 1, billingDay), // Last billed last month
+          id: '1',
+          userId: 'u1',
+          name: 'Netflix',
+          amount: 200,
+          category: 'Eğlence',
+          accountId: 'a1',
+          billingDay: billingDay,
+          frequency: 'monthly',
+          isActive: true,
+          icon: 'netflix',
+          color: '#ff0000',
+          createdAt: DateTime(now.year, now.month - 1, 5),
+          updatedAt: now,
+          lastProcessedAt: DateTime(
+            now.year,
+            now.month - 1,
+            billingDay,
+          ), // Last billed last month
         ),
       ];
 

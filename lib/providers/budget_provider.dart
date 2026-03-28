@@ -4,7 +4,9 @@ import 'package:collection/collection.dart';
 import '../models/goal.dart';
 import '../services/budget_storage_service.dart';
 
-final budgetProvider = StateNotifierProvider<BudgetNotifier, List<Budget>>((ref) {
+final budgetProvider = StateNotifierProvider<BudgetNotifier, List<Budget>>((
+  ref,
+) {
   return BudgetNotifier();
 });
 

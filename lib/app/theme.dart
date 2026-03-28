@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
@@ -23,15 +23,31 @@ class AppTheme {
         // ignore: deprecated_member_use
         background: background,
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
-        displayLarge: GoogleFonts.inter(color: textPrimary, fontWeight: FontWeight.w900),
-        displayMedium: GoogleFonts.inter(color: textPrimary, fontWeight: FontWeight.w800),
-        displaySmall: GoogleFonts.inter(color: textPrimary, fontWeight: FontWeight.bold),
-        headlineMedium: GoogleFonts.inter(color: textPrimary, fontWeight: FontWeight.bold),
-        titleLarge: GoogleFonts.inter(color: textPrimary, fontWeight: FontWeight.bold),
-        bodyLarge: GoogleFonts.inter(color: textPrimary),
-        bodyMedium: GoogleFonts.inter(color: textSecondary),
-      ),
+      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme)
+          .copyWith(
+            displayLarge: GoogleFonts.inter(
+              color: textPrimary,
+              fontWeight: FontWeight.w900,
+            ),
+            displayMedium: GoogleFonts.inter(
+              color: textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+            displaySmall: GoogleFonts.inter(
+              color: textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+            headlineMedium: GoogleFonts.inter(
+              color: textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+            titleLarge: GoogleFonts.inter(
+              color: textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+            bodyLarge: GoogleFonts.inter(color: textPrimary),
+            bodyMedium: GoogleFonts.inter(color: textSecondary),
+          ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -91,7 +107,10 @@ class AppTheme {
           borderSide: const BorderSide(color: accent, width: 2),
         ),
         hintStyle: const TextStyle(color: textMuted),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
       ),
     );
   }

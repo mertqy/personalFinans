@@ -1,4 +1,4 @@
-﻿// GENERATED CODE - DO NOT MODIFY BY HAND
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'loan.dart';
 
@@ -18,6 +18,7 @@ class LoanAdapter extends TypeAdapter<Loan> {
     };
     return Loan(
       id: fields[0] as String,
+      userId: fields[14] as String,
       name: fields[1] as String,
       bank: fields[2] as String,
       type: fields[3] as String,
@@ -30,13 +31,14 @@ class LoanAdapter extends TypeAdapter<Loan> {
       endDate: fields[10] as DateTime,
       createdAt: fields[11] as DateTime,
       updatedAt: fields[12] as DateTime,
+      isCompleted: fields[15] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Loan obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -62,7 +64,11 @@ class LoanAdapter extends TypeAdapter<Loan> {
       ..writeByte(11)
       ..write(obj.createdAt)
       ..writeByte(12)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(14)
+      ..write(obj.userId)
+      ..writeByte(15)
+      ..write(obj.isCompleted);
   }
 
   @override

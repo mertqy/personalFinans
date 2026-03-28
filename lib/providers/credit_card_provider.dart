@@ -1,10 +1,11 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/credit_card.dart';
 import '../services/storage_service.dart';
 
-final creditCardProvider = StateNotifierProvider<CreditCardNotifier, List<CreditCard>>((ref) {
-  return CreditCardNotifier();
-});
+final creditCardProvider =
+    StateNotifierProvider<CreditCardNotifier, List<CreditCard>>((ref) {
+      return CreditCardNotifier();
+    });
 
 class CreditCardNotifier extends StateNotifier<List<CreditCard>> {
   CreditCardNotifier() : super([]) {

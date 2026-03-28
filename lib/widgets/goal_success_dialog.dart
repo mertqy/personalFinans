@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../models/goal.dart';
 import '../core/utils.dart';
 
@@ -21,10 +21,7 @@ class GoalSuccessDialog extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            '🎉',
-            style: TextStyle(fontSize: 64),
-          ),
+          const Text('🎉', style: TextStyle(fontSize: 64)),
           const SizedBox(height: 16),
           const Text(
             'Tebrikler!',
@@ -49,7 +46,9 @@ class GoalSuccessDialog extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: const Text('Harika!'),
           ),

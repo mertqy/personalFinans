@@ -5,24 +5,34 @@ import 'package:personal_finans/core/formatters.dart';
 
 void main() {
   group('Subscription Logic Tests', () {
-    test('Should parse amount correctly with thousands separator and decimal', () {
-      expect(ThousandsSeparatorInputFormatter.parse("1.250"), 1250.0);
-      expect(ThousandsSeparatorInputFormatter.parse("1.250,50"), 1250.50);
-      expect(ThousandsSeparatorInputFormatter.parse("0,75"), 0.75);
-    });
+    test(
+      'Should parse amount correctly with thousands separator and decimal',
+      () {
+        expect(ThousandsSeparatorInputFormatter.parse("1.250"), 1250.0);
+        expect(ThousandsSeparatorInputFormatter.parse("1.250,50"), 1250.50);
+        expect(ThousandsSeparatorInputFormatter.parse("0,75"), 0.75);
+      },
+    );
 
     test('Should format amount correctly for display', () {
       expect(ThousandsSeparatorInputFormatter.format(1250.0), "1.250");
       // Not: NumberFormat.decimalPattern('tr_TR') bazen ondalık küsurat yoksa virgül koymaz.
       // Ama varsa koymalı.
-      expect(ThousandsSeparatorInputFormatter.format(1250.50), contains("1.250"));
+      expect(
+        ThousandsSeparatorInputFormatter.format(1250.50),
+        contains("1.250"),
+      );
       expect(ThousandsSeparatorInputFormatter.format(1250.50), contains("5"));
     });
 
     test('Should convert currency correctly', () {
       final amountInTry = 1000.0;
       // TRY -> EUR (Rate ~35.6)
-      final amountInEur = AppUtils.convertToBaseCurrency(amountInTry, 'TRY', 'EUR');
+      final amountInEur = AppUtils.convertToBaseCurrency(
+        amountInTry,
+        'TRY',
+        'EUR',
+      );
       expect(amountInEur, closeTo(1000 / 35.6, 0.01));
     });
 

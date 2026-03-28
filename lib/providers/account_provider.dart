@@ -1,8 +1,10 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/account.dart';
 import '../services/storage_service.dart';
 
-final accountProvider = StateNotifierProvider<AccountNotifier, List<Account>>((ref) {
+final accountProvider = StateNotifierProvider<AccountNotifier, List<Account>>((
+  ref,
+) {
   return AccountNotifier();
 });
 

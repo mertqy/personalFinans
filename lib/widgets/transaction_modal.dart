@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/transaction_provider.dart';
@@ -15,6 +16,7 @@ import '../screens/location_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../widgets/premium_content_gate.dart';
 
 class TransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
@@ -30,14 +32,14 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
   String _type = 'expense';
   late final TextEditingController _amountController;
   late final TextEditingController _descriptionController;
-  
+
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   String? _selectedMethodId;
   String? _selectedAccountId;
   String? _selectedCreditCardId;
   String? _selectedToId; // Transfer için hedef
-  
+
   bool _isRecurring = false;
   String _recurringFrequency = 'monthly';
 
@@ -45,28 +47,37 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
   double? _lat;
   double? _lng;
 
-  final List<String> _recurringOptions = ['daily', 'weekly', 'monthly', 'yearly'];
+  final List<String> _recurringOptions = [
+    'daily',
+    'weekly',
+    'monthly',
+    'yearly',
+  ];
 
   @override
   void initState() {
     super.initState();
     final tx = widget.transaction;
-    
+
     _type = tx?.type ?? widget.initialType ?? 'expense';
     final accounts = ref.read(accountProvider);
     final cards = ref.read(creditCardProvider);
     _amountController = TextEditingController(
-      text: tx != null ? ThousandsSeparatorInputFormatter.format(AppUtils.getDisplayTRYAmount(tx, accounts, cards)) : '',
+      text: tx != null
+          ? ThousandsSeparatorInputFormatter.format(
+              AppUtils.getDisplayTRYAmount(tx, accounts, cards),
+            )
+          : '',
     );
     _descriptionController = TextEditingController(text: tx?.description);
-    
+
     final catMap = AppUtils.getCategoryById(tx?.category ?? '');
     _selectedCategory = catMap?['id'];
-    
+
     _selectedDate = tx?.date ?? DateTime.now();
     _isRecurring = tx?.isRecurring ?? false;
     _recurringFrequency = tx?.recurringFrequency ?? 'monthly';
-    
+
     if (tx != null) {
       if (tx.creditCardId != null) {
         _selectedMethodId = 'card_${tx.creditCardId}';
@@ -75,13 +86,13 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         _selectedMethodId = 'acc_${tx.accountId}';
         _selectedAccountId = tx.accountId;
       }
-      
+
       if (tx.toAccountId != null) {
         _selectedToId = 'acc_${tx.toAccountId}';
       } else if (tx.toGoalId != null) {
         _selectedToId = 'goal_${tx.toGoalId}';
       }
-      
+
       _lat = tx.locationLat;
       _lng = tx.locationLng;
       _addLocation = _lat != null;
@@ -102,9 +113,13 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
   void _updateDefaultCategory() {
     final currentCat = AppUtils.getCategoryById(_selectedCategory ?? '');
     final typeMismatch = currentCat != null && currentCat['type'] != _type;
-    
-    if (widget.transaction == null || typeMismatch || _selectedCategory == null) {
-      final categories = AppConstants.defaultCategories.where((c) => c['type'] == _type).toList();
+
+    if (widget.transaction == null ||
+        typeMismatch ||
+        _selectedCategory == null) {
+      final categories = AppConstants.defaultCategories
+          .where((c) => c['type'] == _type)
+          .toList();
       if (categories.isNotEmpty) {
         _selectedCategory = categories.first['id'];
       } else {
@@ -116,14 +131,22 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
   String _getCurrencyCode() {
     if (_selectedCreditCardId != null) {
       final cardList = ref.read(creditCardProvider);
-      final cardMatches = cardList.where((c) => c.id == _selectedCreditCardId).toList();
+      final cardMatches = cardList
+          .where((c) => c.id == _selectedCreditCardId)
+          .toList();
       if (cardMatches.isNotEmpty) {
         final card = cardMatches.first;
-        final accList = ref.read(accountProvider).where((a) => a.id == card.accountId).toList();
+        final accList = ref
+            .read(accountProvider)
+            .where((a) => a.id == card.accountId)
+            .toList();
         if (accList.isNotEmpty) return accList.first.currency;
       }
     } else if (_selectedAccountId != null) {
-      final accList = ref.read(accountProvider).where((a) => a.id == _selectedAccountId).toList();
+      final accList = ref
+          .read(accountProvider)
+          .where((a) => a.id == _selectedAccountId)
+          .toList();
       if (accList.isNotEmpty) return accList.first.currency;
     }
     return 'TRY';
@@ -155,8 +178,12 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         }
       } catch (e) {
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum alınamadı. Lütfen izinleri kontrol edin.')));
-           setState(() => _addLocation = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Konum alınamadı. Lütfen izinleri kontrol edin.'),
+            ),
+          );
+          setState(() => _addLocation = false);
         }
       }
     } else {
@@ -192,49 +219,68 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
   void _saveTransaction() {
     if (_formKey.currentState!.validate()) {
       if (_type != 'transfer' && _selectedCategory == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kategori seçiniz')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Kategori seçiniz')));
         return;
       }
 
       if (_selectedAccountId == null && _selectedCreditCardId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hesap veya Kart seçiniz')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Hesap veya Kart seçiniz')),
+        );
         return;
       }
 
       if (_type == 'transfer' && _selectedToId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hedef hesap veya birikim seçiniz')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Hedef hesap veya birikim seçiniz')),
+        );
         return;
       }
 
-      final amountFromController = ThousandsSeparatorInputFormatter.parse(_amountController.text);
+      final amountFromController = ThousandsSeparatorInputFormatter.parse(
+        _amountController.text,
+      );
       final accountCurrency = _getCurrencyCode();
-      
+
       // Calculate final amount for the database (in account currency)
       // Income/Expense are entered in TRY, Transfers are entered in account currency
-      final amount = _type == 'transfer' 
-          ? amountFromController 
-          : AppUtils.convertToBaseCurrency(amountFromController, 'TRY', accountCurrency);
-          
-      final categoryName = AppUtils.getCategoryName(_selectedCategory ?? 'Transfer');
+      final amount = _type == 'transfer'
+          ? amountFromController
+          : AppUtils.convertToBaseCurrency(
+              amountFromController,
+              'TRY',
+              accountCurrency,
+            );
+
+      final categoryName = AppUtils.getCategoryName(
+        _selectedCategory ?? 'Transfer',
+      );
 
       // Bakiye Kontrolü (Normal hesaplar eksiye düşmemeli)
-      if (_selectedAccountId != null && (_type == 'expense' || _type == 'transfer')) {
+      if (_selectedAccountId != null &&
+          (_type == 'expense' || _type == 'transfer')) {
         final accounts = ref.read(accountProvider);
         final account = accounts.firstWhere((a) => a.id == _selectedAccountId);
-        
+
         double currentBalance = account.balance;
-        if (widget.transaction != null && widget.transaction!.accountId == _selectedAccountId) {
+        if (widget.transaction != null &&
+            widget.transaction!.accountId == _selectedAccountId) {
           // Düzenleme modunda eski tutarı bakiyeye "varmış gibi" ekleyip kontrol edelim
           // Notifier zaten revert ederken ekleyecek, burada sadece kontrol için simüle ediyoruz.
-          if (widget.transaction!.type == 'expense' || widget.transaction!.type == 'transfer') {
-             currentBalance += widget.transaction!.amount;
+          if (widget.transaction!.type == 'expense' ||
+              widget.transaction!.type == 'transfer') {
+            currentBalance += widget.transaction!.amount;
           } else if (widget.transaction!.type == 'income') {
-             currentBalance -= widget.transaction!.amount;
+            currentBalance -= widget.transaction!.amount;
           }
         }
 
         if (amount > currentBalance) {
-          final String balanceSymbol = AppUtils.getCurrencySymbol(account.currency);
+          final String balanceSymbol = AppUtils.getCurrencySymbol(
+            account.currency,
+          );
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -245,7 +291,9 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                   Text('Yetersiz Bakiye'),
                 ],
               ),
-              content: Text('Bu işlem için seçili hesapta yeterli bakiye bulunmuyor.\n\nEn fazla harcayabileceğiniz tutar: ${ThousandsSeparatorInputFormatter.format(currentBalance)} $balanceSymbol'),
+              content: Text(
+                'Bu işlem için seçili hesapta yeterli bakiye bulunmuyor.\n\nEn fazla harcayabileceğiniz tutar: ${ThousandsSeparatorInputFormatter.format(currentBalance)} $balanceSymbol',
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
@@ -273,8 +321,14 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         final tx = widget.transaction!;
         tx.type = _type;
         tx.amount = amount;
-        tx.category = _selectedCategory ?? (_type == 'transfer' ? (toGoalId != null ? 'Birikim Aktarma' : 'Transfer') : 'Diğer');
-        tx.description = _descriptionController.text.isEmpty ? (_type == 'transfer' ? 'Transfer' : categoryName) : _descriptionController.text;
+        tx.category =
+            _selectedCategory ??
+            (_type == 'transfer'
+                ? (toGoalId != null ? 'Birikim Aktarma' : 'Transfer')
+                : 'Diğer');
+        tx.description = _descriptionController.text.isEmpty
+            ? (_type == 'transfer' ? 'Transfer' : categoryName)
+            : _descriptionController.text;
         tx.date = _selectedDate;
         tx.isRecurring = _isRecurring;
         tx.recurringFrequency = _isRecurring ? _recurringFrequency : null;
@@ -290,11 +344,17 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
       } else {
         final transaction = Transaction(
           id: AppUtils.generateId(),
-          userId: 'temp_user_id',
+          userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
           type: _type,
           amount: amount,
-          category: _selectedCategory ?? (_type == 'transfer' ? (toGoalId != null ? 'Birikim Aktarma' : 'Transfer') : 'Diğer'),
-          description: _descriptionController.text.isEmpty ? (_type == 'transfer' ? 'Transfer' : categoryName) : _descriptionController.text,
+          category:
+              _selectedCategory ??
+              (_type == 'transfer'
+                  ? (toGoalId != null ? 'Birikim Aktarma' : 'Transfer')
+                  : 'Diğer'),
+          description: _descriptionController.text.isEmpty
+              ? (_type == 'transfer' ? 'Transfer' : categoryName)
+              : _descriptionController.text,
           date: _selectedDate,
           isPlanned: false,
           isRecurring: _isRecurring,
@@ -320,7 +380,9 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
         Future.delayed(const Duration(milliseconds: 400), () {
           if (!mounted) return;
           final updatedGoals = ref.read(goalProvider);
-          final updatedGoal = updatedGoals.where((g) => g.id == completedGoalId).firstOrNull;
+          final updatedGoal = updatedGoals
+              .where((g) => g.id == completedGoalId)
+              .firstOrNull;
           if (updatedGoal != null && updatedGoal.isCompleted) {
             if (context.mounted) {
               GoalSuccessDialog.show(context, updatedGoal);
@@ -336,19 +398,31 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('İşlemi Sil'),
-        content: const Text('Bu işlemi silmek istediğinize emin misiniz? Bakiye/Borç durumu otomatik olarak düzeltilecektir.'),
+        content: const Text(
+          'Bu işlemi silmek istediğinize emin misiniz? Bakiye/Borç durumu otomatik olarak düzeltilecektir.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
           ElevatedButton(
             onPressed: () {
               if (widget.transaction != null) {
-                ref.read(transactionProvider.notifier).deleteTransaction(widget.transaction!);
+                ref
+                    .read(transactionProvider.notifier)
+                    .deleteTransaction(widget.transaction!);
               }
               Navigator.pop(context); // Dialog
               Navigator.pop(this.context); // Modal
-              ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('İşlem silindi')));
+              ScaffoldMessenger.of(
+                this.context,
+              ).showSnackBar(const SnackBar(content: Text('İşlem silindi')));
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Sil'),
           ),
         ],
@@ -361,10 +435,12 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
     final accounts = ref.watch(accountProvider);
     final cards = ref.watch(creditCardProvider);
     final goals = ref.watch(goalProvider);
-    
+
     final List<Map<String, dynamic>> filteredCategories = _type == 'transfer'
         ? []
-        : AppConstants.defaultCategories.where((cat) => cat['type'] == _type).toList();
+        : AppConstants.defaultCategories
+              .where((cat) => cat['type'] == _type)
+              .toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -373,7 +449,9 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        top: 24, left: 24, right: 24,
+        top: 24,
+        left: 24,
+        right: 24,
       ),
       child: Form(
         key: _formKey,
@@ -387,17 +465,27 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    widget.transaction == null ? 'Yeni İşlem' : 'İşlemi Düzenle',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    widget.transaction == null
+                        ? 'Yeni İşlem'
+                        : 'İşlemi Düzenle',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Row(
                     children: [
                       if (widget.transaction != null)
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
                           onPressed: _confirmDelete,
                         ),
-                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
                     ],
                   ),
                 ],
@@ -406,9 +494,21 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
 
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'expense', label: Text('Gider'), icon: Icon(Icons.keyboard_arrow_up)),
-                  ButtonSegment(value: 'income', label: Text('Gelir'), icon: Icon(Icons.keyboard_arrow_down)),
-                  ButtonSegment(value: 'transfer', label: Text('Transfer'), icon: Icon(Icons.swap_horiz)),
+                  ButtonSegment(
+                    value: 'expense',
+                    label: Text('Gider'),
+                    icon: Icon(Icons.keyboard_arrow_up),
+                  ),
+                  ButtonSegment(
+                    value: 'income',
+                    label: Text('Gelir'),
+                    icon: Icon(Icons.keyboard_arrow_down),
+                  ),
+                  ButtonSegment(
+                    value: 'transfer',
+                    label: Text('Transfer'),
+                    icon: Icon(Icons.swap_horiz),
+                  ),
                 ],
                 selected: {_type},
                 onSelectionChanged: (Set<String> newSelection) {
@@ -420,34 +520,53 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                     // Convert amount between TRY and Account Currency if switching to/from transfer
                     final currentAmountStr = _amountController.text;
                     if (currentAmountStr.isNotEmpty) {
-                      final currentAmount = ThousandsSeparatorInputFormatter.parse(currentAmountStr);
+                      final currentAmount =
+                          ThousandsSeparatorInputFormatter.parse(
+                            currentAmountStr,
+                          );
                       if (currentAmount > 0) {
                         final accountCurrency = _getCurrencyCode();
                         if (oldType == 'transfer') {
                           // From Account Currency (e.g. USD) to TRY
-                          final converted = AppUtils.convertToBaseCurrency(currentAmount, accountCurrency, 'TRY');
-                          _amountController.text = ThousandsSeparatorInputFormatter.format(converted);
+                          final converted = AppUtils.convertToBaseCurrency(
+                            currentAmount,
+                            accountCurrency,
+                            'TRY',
+                          );
+                          _amountController.text =
+                              ThousandsSeparatorInputFormatter.format(
+                                converted,
+                              );
                         } else if (newType == 'transfer') {
                           // From TRY to Account Currency (e.g. USD)
-                          final converted = AppUtils.convertToBaseCurrency(currentAmount, 'TRY', accountCurrency);
-                          _amountController.text = ThousandsSeparatorInputFormatter.format(converted);
+                          final converted = AppUtils.convertToBaseCurrency(
+                            currentAmount,
+                            'TRY',
+                            accountCurrency,
+                          );
+                          _amountController.text =
+                              ThousandsSeparatorInputFormatter.format(
+                                converted,
+                              );
                         }
                       }
                     }
-                    
+
                     _type = newType;
                     _updateDefaultCategory();
                     if (_type == 'income') {
                       _selectedCreditCardId = null;
                       if (_selectedMethodId?.startsWith('card_') ?? false) {
-                         _selectedMethodId = null; 
+                        _selectedMethodId = null;
                       }
                     }
                   });
                 },
                 style: SegmentedButton.styleFrom(
                   selectedForegroundColor: Colors.white,
-                  selectedBackgroundColor: _type == 'expense' ? Colors.red : (_type == 'income' ? Colors.green : Colors.blue),
+                  selectedBackgroundColor: _type == 'expense'
+                      ? Colors.red
+                      : (_type == 'income' ? Colors.green : Colors.blue),
                 ),
               ),
               const SizedBox(height: 16),
@@ -459,7 +578,10 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                   FilteringTextInputFormatter.digitsOnly,
                   ThousandsSeparatorInputFormatter(),
                 ],
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
                 decoration: InputDecoration(
                   labelText: 'Tutar',
                   prefixText: '${_getCurrencySymbol()} ',
@@ -475,13 +597,21 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
 
               if (_type != 'transfer') ...[
                 DropdownButtonFormField<String>(
-                  initialValue: filteredCategories.any((cat) => cat['id'] == _selectedCategory) ? _selectedCategory : null,
+                  initialValue:
+                      filteredCategories.any(
+                        (cat) => cat['id'] == _selectedCategory,
+                      )
+                      ? _selectedCategory
+                      : null,
                   items: filteredCategories.map((cat) {
                     return DropdownMenuItem<String>(
                       value: cat['id'] as String,
                       child: Row(
                         children: [
-                          Text(cat['icon'] as String, style: const TextStyle(fontSize: 18)),
+                          Text(
+                            cat['icon'] as String,
+                            style: const TextStyle(fontSize: 18),
+                          ),
                           const SizedBox(width: 8),
                           Text(cat['name'] as String),
                         ],
@@ -497,13 +627,17 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
 
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Açıklama (İsteğe Bağlı)'),
+                decoration: const InputDecoration(
+                  labelText: 'Açıklama (İsteğe Bağlı)',
+                ),
               ),
               const SizedBox(height: 16),
 
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 title: const Text('Tarih'),
                 subtitle: Text(AppUtils.formatDate(_selectedDate)),
                 trailing: const Icon(Icons.calendar_today),
@@ -521,33 +655,59 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
               ),
               const SizedBox(height: 16),
 
-              Text(_type == 'transfer' ? 'Nereden?' : 'Ödeme Yöntemi', style: Theme.of(context).textTheme.titleSmall),
+              Text(
+                _type == 'transfer' ? 'Nereden?' : 'Ödeme Yöntemi',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _selectedMethodId,
                 items: <DropdownMenuItem<String>>[
-                  if ((_type == 'expense' || _type == 'transfer') && cards.isNotEmpty) ...[
+                  if ((_type == 'expense' || _type == 'transfer') &&
+                      cards.isNotEmpty) ...[
                     const DropdownMenuItem<String>(
                       value: 'header_cards',
                       enabled: false,
-                      child: Text('--- Kredi Kartları ---', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      child: Text(
+                        '--- Kredi Kartları ---',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
-                    ...cards.map((card) => DropdownMenuItem<String>(value: 'card_${card.id}', child: Text('${card.name} (Kart)'))),
+                    ...cards.map(
+                      (card) => DropdownMenuItem<String>(
+                        value: 'card_${card.id}',
+                        child: Text('${card.name} (Kart)'),
+                      ),
+                    ),
                   ],
                   if (accounts.isNotEmpty) ...[
                     const DropdownMenuItem<String>(
                       value: 'header_accounts',
                       enabled: false,
-                      child: Text('--- Hesaplar ---', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      child: Text(
+                        '--- Hesaplar ---',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
-                    ...accounts.map((acc) => DropdownMenuItem<String>(value: 'acc_${acc.id}', child: Text('${acc.name} (${acc.currency})'))),
+                    ...accounts.map(
+                      (acc) => DropdownMenuItem<String>(
+                        value: 'acc_${acc.id}',
+                        child: Text('${acc.name} (${acc.currency})'),
+                      ),
+                    ),
                   ],
                 ],
                 onChanged: (val) {
                   if (val == null || val.startsWith('header_')) return;
-                  
+
                   final oldCurrency = _getCurrencyCode();
-                  
+
                   setState(() {
                     _selectedMethodId = val;
                     if (val.startsWith('card_')) {
@@ -557,25 +717,41 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                       _selectedAccountId = val.substring(4);
                       _selectedCreditCardId = null;
                     }
-                    
+
                     final newCurrency = _getCurrencyCode();
-                    
+
                     // Only convert amount in field if we are in transfer mode (input is in account currency)
                     // If in expense/income mode, input is always in TL, so no conversion on account change
                     if (_type == 'transfer' && oldCurrency != newCurrency) {
-                      final currentAmount = ThousandsSeparatorInputFormatter.parse(_amountController.text);
+                      final currentAmount =
+                          ThousandsSeparatorInputFormatter.parse(
+                            _amountController.text,
+                          );
                       if (currentAmount > 0) {
-                        final convertedAmount = AppUtils.convertToBaseCurrency(currentAmount, oldCurrency, newCurrency);
-                        _amountController.text = ThousandsSeparatorInputFormatter.format(convertedAmount);
+                        final convertedAmount = AppUtils.convertToBaseCurrency(
+                          currentAmount,
+                          oldCurrency,
+                          newCurrency,
+                        );
+                        _amountController.text =
+                            ThousandsSeparatorInputFormatter.format(
+                              convertedAmount,
+                            );
                       }
                     }
                   });
                 },
-                decoration: InputDecoration(labelText: _type == 'transfer' ? 'Hangi Hesaptan?' : 'Hangi Hesaptan/Karttan?'),
+                decoration: InputDecoration(
+                  labelText: _type == 'transfer'
+                      ? 'Hangi Hesaptan?'
+                      : 'Hangi Hesaptan/Karttan?',
+                ),
                 hint: const Text('Seçiniz'),
-                validator: (val) => (val == null || val.startsWith('header_')) ? 'Kaynak seçiniz' : null,
+                validator: (val) => (val == null || val.startsWith('header_'))
+                    ? 'Kaynak seçiniz'
+                    : null,
               ),
-              
+
               if (_type == 'transfer') ...[
                 const SizedBox(height: 16),
                 Text('Nereye?', style: Theme.of(context).textTheme.titleSmall),
@@ -587,29 +763,59 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                       const DropdownMenuItem<String>(
                         value: 'header_acc_to',
                         enabled: false,
-                        child: Text('--- Hesaplar ---', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                        child: Text(
+                          '--- Hesaplar ---',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
-                      ...accounts.where((acc) => 'acc_${acc.id}' != _selectedMethodId).map((acc) => DropdownMenuItem<String>(value: 'acc_${acc.id}', child: Text('${acc.name} (${acc.currency})'))),
+                      ...accounts
+                          .where((acc) => 'acc_${acc.id}' != _selectedMethodId)
+                          .map(
+                            (acc) => DropdownMenuItem<String>(
+                              value: 'acc_${acc.id}',
+                              child: Text('${acc.name} (${acc.currency})'),
+                            ),
+                          ),
                     ],
                     if (goals.isNotEmpty) ...[
                       const DropdownMenuItem<String>(
                         value: 'header_goals_to',
                         enabled: false,
-                        child: Text('--- Birikim Hedefleri ---', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                        child: Text(
+                          '--- Birikim Hedefleri ---',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
-                      ...goals.where((g) => !g.isCompleted).map((goal) => DropdownMenuItem<String>(value: 'goal_${goal.id}', child: Text('${goal.title} (Hedef)'))),
+                      ...goals
+                          .where((g) => !g.isCompleted)
+                          .map(
+                            (goal) => DropdownMenuItem<String>(
+                              value: 'goal_${goal.id}',
+                              child: Text('${goal.title} (Hedef)'),
+                            ),
+                          ),
                     ],
                   ],
                   onChanged: (val) {
                     if (val == null || val.startsWith('header_')) return;
                     setState(() => _selectedToId = val);
                   },
-                  decoration: const InputDecoration(labelText: 'Hedef Hesap veya Birikim'),
+                  decoration: const InputDecoration(
+                    labelText: 'Hedef Hesap veya Birikim',
+                  ),
                   hint: const Text('Hedef Seçiniz'),
-                  validator: (val) => (val == null || val.startsWith('header_')) ? 'Hedef seçiniz' : null,
+                  validator: (val) => (val == null || val.startsWith('header_'))
+                      ? 'Hedef seçiniz'
+                      : null,
                 ),
               ],
-              
+
               const SizedBox(height: 16),
 
               SwitchListTile(
@@ -622,17 +828,31 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                 DropdownButtonFormField<String>(
                   initialValue: _recurringFrequency,
                   items: _recurringOptions.map((opt) {
-                     String text = '';
-                     switch(opt){
-                        case 'daily': text = 'Her Gün'; break;
-                        case 'weekly': text = 'Her Hafta'; break;
-                        case 'monthly': text = 'Her Ay'; break;
-                        case 'yearly': text = 'Her Yıl'; break;
-                     }
-                     return DropdownMenuItem<String>(value: opt, child: Text(text));
+                    String text = '';
+                    switch (opt) {
+                      case 'daily':
+                        text = 'Her Gün';
+                        break;
+                      case 'weekly':
+                        text = 'Her Hafta';
+                        break;
+                      case 'monthly':
+                        text = 'Her Ay';
+                        break;
+                      case 'yearly':
+                        text = 'Her Yıl';
+                        break;
+                    }
+                    return DropdownMenuItem<String>(
+                      value: opt,
+                      child: Text(text),
+                    );
                   }).toList(),
-                  onChanged: (val) => setState(() => _recurringFrequency = val!),
-                  decoration: const InputDecoration(labelText: 'Tekrar Sıklığı'),
+                  onChanged: (val) =>
+                      setState(() => _recurringFrequency = val!),
+                  decoration: const InputDecoration(
+                    labelText: 'Tekrar Sıklığı',
+                  ),
                 ),
 
               const SizedBox(height: 24),
@@ -645,70 +865,97 @@ class _TransactionModalState extends ConsumerState<TransactionModal> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Kaydet',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Konum Ekleme Bölümü
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    SwitchListTile(
-                      title: const Text('Konum Ekle'),
-                      subtitle: const Text('Harcama yapılan konumu kaydet'),
-                      secondary: const Icon(Icons.location_on_outlined),
-                      value: _addLocation,
-                      onChanged: _handleLocation,
-                    ),
-                    if (_addLocation)
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.gps_fixed, size: 16, color: Colors.blue),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _lat != null ? 'Konum: ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}' : 'Konum alınıyor...',
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () async {
-                                final result = await Navigator.push<LatLng>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => LocationPickerScreen(
-                                      initialLocation: _lat != null ? LatLng(_lat!, _lng!) : null,
-                                    ),
-                                  ),
-                                );
-                                if (result != null) {
-                                  setState(() {
-                                    _lat = result.latitude;
-                                    _lng = result.longitude;
-                                  });
-                                }
-                              },
-                              icon: const Icon(Icons.edit_location_alt, size: 16),
-                              label: const Text('Haritada Seç', style: TextStyle(fontSize: 12)),
-                            ),
-                          ],
-                        ),
+              PremiumContentGate(
+                compact: true,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        title: const Text('Konum Ekle'),
+                        subtitle: const Text('Harcama yapılan konumu kaydet'),
+                        secondary: const Icon(Icons.location_on_outlined),
+                        value: _addLocation,
+                        onChanged: _handleLocation,
                       ),
-                  ],
+                      if (_addLocation)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.gps_fixed,
+                                size: 16,
+                                color: Colors.blue,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _lat != null
+                                      ? 'Konum: ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}'
+                                      : 'Konum alınıyor...',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () async {
+                                  final result = await Navigator.push<LatLng>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => LocationPickerScreen(
+                                        initialLocation: _lat != null
+                                            ? LatLng(_lat!, _lng!)
+                                            : null,
+                                      ),
+                                    ),
+                                  );
+                                  if (result != null) {
+                                    setState(() {
+                                      _lat = result.latitude;
+                                      _lng = result.longitude;
+                                    });
+                                  }
+                                },
+                                icon: const Icon(
+                                  Icons.edit_location_alt,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'Haritada Seç',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            const SizedBox(height: 24),
-          ].animate(interval: 50.ms).fade(duration: 400.ms).slideY(begin: 0.1),
-        ),
+              const SizedBox(height: 24),
+            ].animate(interval: 50.ms).fade(duration: 400.ms).slideY(begin: 0.1),
+          ),
         ),
       ),
     );

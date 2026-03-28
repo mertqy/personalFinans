@@ -1,0 +1,6 @@
+﻿Analyzing personalFinans...                                     
+
+   info - Don't invoke 'print' in production code - test\unit\transaction_provider_test.dart:244:7 - avoid_print
+   info - Don't invoke 'print' in production code - test\unit\transaction_provider_test.dart:246:9 - avoid_print
+   info - The import of 'package:flutter/material.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart' - test\widget_test.dart:8:8 - unnecessary_import
+

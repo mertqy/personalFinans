@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'setup_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -15,19 +15,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<OnboardingData> _pages = [
     OnboardingData(
       title: 'Param Nerede?',
-      description: 'Finansal özgürlüğünüz için harcamalarınızı ve bütçenizi kontrol altına almanın en akıllı yolu.',
+      description:
+          'Finansal özgürlüğünüz için harcamalarınızı ve bütçenizi kontrol altına almanın en akıllı yolu.',
       icon: Icons.account_balance_wallet,
       color: Colors.blue,
     ),
     OnboardingData(
       title: 'Anlık Takip',
-      description: 'Gelir ve giderlerinizi saniyeler içinde kaydedin, paranızın nereye gittiğini tek bakışta görün.',
+      description:
+          'Gelir ve giderlerinizi saniyeler içinde kaydedin, paranızın nereye gittiğini tek bakışta görün.',
       icon: Icons.speed,
       color: Colors.green,
     ),
     OnboardingData(
       title: 'Akıllı Analizler',
-      description: 'Yapay zeka destekli tahminlerle ay sonu bakiyenizi görün ve harcama alışkanlıklarınızı iyileştirin.',
+      description:
+          'Yapay zeka destekli tahminlerle ay sonu bakiyenizi görün ve harcama alışkanlıklarınızı iyileştirin.',
       icon: Icons.auto_graph,
       color: Colors.purple,
     ),
@@ -71,7 +74,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       if (_currentPage == _pages.length - 1) {
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => const SetupScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => const SetupScreen(),
+                          ),
                         );
                       } else {
                         _pageController.nextPage(
@@ -89,8 +94,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     ),
                     child: Text(
-                      _currentPage == _pages.length - 1 ? 'Başlayalım' : 'Sonraki',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      _currentPage == _pages.length - 1
+                          ? 'Başlayalım'
+                          : 'Sonraki',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -132,10 +142,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 60),
           Text(
             data.title,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
