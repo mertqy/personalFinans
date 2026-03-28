@@ -19,7 +19,7 @@ class PaymentsScreen extends StatelessWidget {
             tabs: [
               Tab(text: 'Hesaplar'),
               Tab(text: 'Kartlar'),
-              Tab(text: 'Krediler'),
+              Tab(text: 'Krediler & Borçlar'),
               Tab(text: 'Abonelikler'),
             ],
           ),

@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 import '../../providers/loan_provider.dart';
+import '../../providers/debt_provider.dart';
 import '../../core/utils.dart';
 import '../../core/premium_limits.dart';
 import '../../widgets/add_loan_modal.dart';
+import '../../widgets/add_debt_modal.dart';
+import '../../widgets/pay_debt_modal.dart';
 import '../../widgets/premium_gate.dart';
 import '../../providers/account_provider.dart';
-import '../../providers/transaction_provider.dart';
-import '../../models/transaction.dart';
 import '../../models/loan.dart';
+import '../../models/debt.dart';
 
 class LoansTab extends ConsumerWidget {
   const LoansTab({super.key});
@@ -21,27 +22,42 @@ class LoansTab extends ConsumerWidget {
     final activeLoans = allLoans.where((l) => !l.isCompleted).toList();
     final completedLoans = allLoans.where((l) => l.isCompleted).toList();
 
+    final allDebts = ref.watch(debtProvider);
+    final activeDebts = allDebts.where((d) => !d.isCompleted).toList();
+    final completedDebts = allDebts.where((d) => d.isCompleted).toList();
+
     Widget body;
-    if (allLoans.isEmpty) {
+    if (allLoans.isEmpty && allDebts.isEmpty) {
       body = Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
               Icons.real_estate_agent_outlined,
-              size: 60,
+              size: 80,
               color: Colors.grey,
             ),
             const SizedBox(height: 16),
             const Text(
-              'Hiç kredi kaydınız bulunmuyor.',
+              'Hiç kredi veya borç kaydınız bulunmuyor.',
               style: TextStyle(color: Colors.grey),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => _showAddLoan(context, ref, allLoans.length),
-              icon: const Icon(Icons.add),
-              label: const Text('Kredi Ekle'),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => _showAddLoan(context, ref, allLoans.length),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Kredi Ekle'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _showAddDebt(context, ref, allDebts.length),
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: const Text('Borç Ekle'),
+                ),
+              ],
             ),
           ],
         ),
@@ -50,44 +66,102 @@ class LoansTab extends ConsumerWidget {
       body = ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // LOANS SECTION
           if (activeLoans.isNotEmpty) ...[
             const Padding(
-              padding: EdgeInsets.only(left: 4, bottom: 8),
+              padding: EdgeInsets.only(left: 4, bottom: 8, top: 8),
               child: Text(
-                'Aktif Krediler',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                'AKTİF KREDİLER',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                  color: Colors.grey,
+                ),
               ),
             ),
             ...activeLoans.map((loan) => _buildLoanCard(context, ref, loan)),
           ],
+
+          // DEBTS SECTION
+          if (activeDebts.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 8, top: 16),
+              child: Text(
+                'AKTİF BORÇLAR',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            ...activeDebts.map((debt) => _buildDebtCard(context, ref, debt)),
+          ],
+
+          // COMPLETED LOANS
           if (completedLoans.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             const Padding(
               padding: EdgeInsets.only(left: 4, bottom: 8),
               child: Text(
-                'Tamamlanan Krediler',
+                'TAMAMLANAN KREDİLER',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
                   color: Colors.grey,
                 ),
               ),
             ),
             ...completedLoans.map((loan) => _buildLoanCard(context, ref, loan)),
           ],
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0),
-            child: OutlinedButton.icon(
-              onPressed: () => _showAddLoan(context, ref, allLoans.length),
-              icon: const Icon(Icons.add),
-              label: const Text('Yeni Kredi Ekle'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.all(16),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
+
+          // COMPLETED DEBTS
+          if (completedDebts.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 8),
+              child: Text(
+                'TAMAMLANAN BORÇLAR',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                  color: Colors.grey,
                 ),
               ),
             ),
+            ...completedDebts.map((debt) => _buildDebtCard(context, ref, debt)),
+          ],
+
+          // ACTION BUTTONS
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showAddLoan(context, ref, allLoans.length),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Kredi Ekle'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showAddDebt(context, ref, allDebts.length),
+                  icon: const Icon(Icons.person_add_alt_1, size: 18),
+                  label: const Text('Borç Ekle'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 32),
         ],
@@ -100,11 +174,7 @@ class LoansTab extends ConsumerWidget {
     );
   }
 
-  void _showAddLoan(
-    BuildContext context,
-    WidgetRef ref,
-    int currentCount,
-  ) async {
+  void _showAddLoan(BuildContext context, WidgetRef ref, int currentCount) async {
     final allowed = await PremiumGate.check(
       context: context,
       ref: ref,
@@ -120,14 +190,27 @@ class LoansTab extends ConsumerWidget {
     );
   }
 
+  void _showAddDebt(BuildContext context, WidgetRef ref, int currentCount) async {
+    final allowed = await PremiumGate.check(
+      context: context,
+      ref: ref,
+      currentCount: currentCount,
+      freeLimit: PremiumLimits.freeDebtLimit,
+    );
+    if (!allowed || !context.mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (c) => const AddDebtModal(),
+    );
+  }
+
   Widget _buildLoanCard(BuildContext context, WidgetRef ref, Loan loan) {
     final paidAmount = loan.totalAmount - loan.remainingAmount;
-    final progress =
-        paidAmount / (loan.totalAmount == 0 ? 1 : loan.totalAmount);
+    final progress = paidAmount / (loan.totalAmount == 0 ? 1 : loan.totalAmount);
     final accounts = ref.watch(accountProvider);
-    final account = accounts.any((a) => a.id == loan.accountId)
-        ? accounts.firstWhere((a) => a.id == loan.accountId)
-        : null;
+    final account = accounts.firstWhereOrNull((a) => a.id == loan.accountId);
     final currency = account?.currency ?? 'TRY';
 
     return Card(
@@ -154,73 +237,29 @@ class LoansTab extends ConsumerWidget {
                       CircleAvatar(
                         backgroundColor: loan.isCompleted
                             ? Colors.grey.withValues(alpha: 0.2)
-                            : Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.2),
+                            : Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                         child: Icon(
-                          loan.isCompleted
-                              ? Icons.check_circle_outline
-                              : Icons.account_balance,
-                          color: loan.isCompleted
-                              ? Colors.grey
-                              : Theme.of(context).colorScheme.primary,
+                          loan.isCompleted ? Icons.check_circle_outline : Icons.account_balance,
+                          color: loan.isCompleted ? Colors.grey : Theme.of(context).colorScheme.primary,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                loan.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              if (loan.isCompleted) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'BİTTİ',
-                                    style: TextStyle(
-                                      color: Colors.green,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
+                          Text(
+                            loan.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                           Text(
                             loan.bank,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
                           ),
                         ],
                       ),
                     ],
                   ),
                   PopupMenuButton<String>(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      size: 20,
-                      color: Colors.grey,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
                     onSelected: (value) {
                       if (value == 'edit') {
                         showModalBottomSheet(
@@ -230,18 +269,12 @@ class LoansTab extends ConsumerWidget {
                           builder: (c) => AddLoanModal(loan: loan),
                         );
                       } else if (value == 'delete') {
-                        _confirmDelete(context, ref, loan.id);
+                        _confirmDeleteLoan(context, ref, loan.id);
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Düzenle'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Sil', style: TextStyle(color: Colors.red)),
-                      ),
+                      const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                      const PopupMenuItem(value: 'delete', child: Text('Sil', style: TextStyle(color: Colors.red))),
                     ],
                   ),
                 ],
@@ -253,17 +286,10 @@ class LoansTab extends ConsumerWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Kalan Borç',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                      ),
+                      const Text('Kalan Borç', style: TextStyle(color: Colors.grey, fontSize: 12)),
                       Text(
                         AppUtils.formatCurrency(
-                          AppUtils.convertToBaseCurrency(
-                            loan.remainingAmount,
-                            currency,
-                            'TRY',
-                          ),
+                          AppUtils.convertToBaseCurrency(loan.remainingAmount, currency, 'TRY'),
                           currency: 'TRY',
                         ),
                         style: TextStyle(
@@ -272,37 +298,14 @@ class LoansTab extends ConsumerWidget {
                           color: loan.isCompleted ? Colors.grey : Colors.orange,
                         ),
                       ),
-                      if (currency != 'TRY')
-                        Text(
-                          AppUtils.formatCurrency(
-                            loan.remainingAmount,
-                            currency: currency,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
-                        ),
                     ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'Ödenen: ${AppUtils.formatCurrency(AppUtils.convertToBaseCurrency(paidAmount, currency, 'TRY'), currency: 'TRY')}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
                         'Toplam: ${AppUtils.formatCurrency(AppUtils.convertToBaseCurrency(loan.totalAmount, currency, 'TRY'), currency: 'TRY')}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -313,49 +316,36 @@ class LoansTab extends ConsumerWidget {
                 value: progress,
                 backgroundColor: Colors.grey.withValues(alpha: 0.1),
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  loan.isCompleted
-                      ? Colors.green
-                      : Theme.of(context).colorScheme.primary,
+                  loan.isCompleted ? Colors.green : Theme.of(context).colorScheme.primary,
                 ),
                 minHeight: 8,
                 borderRadius: BorderRadius.circular(4),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: loan.isCompleted
-                          ? null
-                          : () => _showPaymentConfirmation(context, ref, loan),
-                      child: Text(
-                        loan.isCompleted
-                            ? 'Borç Kapandı'
-                            : 'Taksit Öde (${AppUtils.formatCurrency(AppUtils.convertToBaseCurrency(loan.monthlyPayment, currency, 'TRY'), currency: 'TRY')})',
+              if (!loan.isCompleted) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _showLoanPaymentConfirmation(context, ref, loan),
+                        child: const Text('Taksit Öde'),
                       ),
                     ),
-                  ),
-                  if (!loan.isCompleted) ...[
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () =>
-                            _showPayAllConfirmation(context, ref, loan),
+                        onPressed: () => _showPayAllLoanConfirmation(context, ref, loan),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange.withValues(alpha: 0.1),
                           foregroundColor: Colors.orange,
                           elevation: 0,
-                          side: const BorderSide(
-                            color: Colors.orange,
-                            width: 0.5,
-                          ),
                         ),
-                        child: const Text('Borcu Kapat'),
+                        child: const Text('Kapat'),
                       ),
                     ),
                   ],
-                ],
-              ),
+                ),
+              ],
             ],
           ),
         ),
@@ -363,72 +353,167 @@ class LoansTab extends ConsumerWidget {
     );
   }
 
-  void _showPaymentConfirmation(
-    BuildContext context,
-    WidgetRef ref,
-    Loan loan,
-  ) {
+  Widget _buildDebtCard(BuildContext context, WidgetRef ref, Debt debt) {
+    final paidAmount = debt.totalAmount - debt.remainingAmount;
+    final progress = paidAmount / (debt.totalAmount == 0 ? 1 : debt.totalAmount);
+
+    return Card(
+      elevation: debt.isCompleted ? 0 : 2,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: debt.isCompleted
+            ? BorderSide(color: Colors.grey.withValues(alpha: 0.2))
+            : BorderSide.none,
+      ),
+      child: Opacity(
+        opacity: debt.isCompleted ? 0.7 : 1.0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: debt.isCompleted
+                            ? Colors.grey.withValues(alpha: 0.2)
+                            : Colors.indigo.withValues(alpha: 0.2),
+                        child: Icon(
+                          debt.isCompleted ? Icons.check_circle_outline : Icons.person_outline,
+                          color: debt.isCompleted ? Colors.grey : Colors.indigo,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            debt.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          if (debt.creditorName != null)
+                            Text(
+                              debt.creditorName!,
+                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (c) => AddDebtModal(debt: debt),
+                        );
+                      } else if (value == 'delete') {
+                        _confirmDeleteDebt(context, ref, debt.id);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Düzenle')),
+                      const PopupMenuItem(value: 'delete', child: Text('Sil', style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Kalan Borç', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text(
+                        AppUtils.formatCurrency(debt.remainingAmount, currency: debt.currency),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: debt.isCompleted ? Colors.grey : Colors.redAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Toplam: ${AppUtils.formatCurrency(debt.totalAmount, currency: debt.currency)}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: progress,
+                backgroundColor: Colors.grey.withValues(alpha: 0.1),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  debt.isCompleted ? Colors.green : Colors.indigo,
+                ),
+                minHeight: 8,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              if (!debt.isCompleted) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (c) => PayDebtModal(debt: debt),
+                          );
+                        },
+                        child: const Text('Ödeme Yap'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _confirmCompleteDebt(context, ref, debt),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.withValues(alpha: 0.1),
+                          foregroundColor: Colors.green,
+                          elevation: 0,
+                        ),
+                        child: const Text('Kapat'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showLoanPaymentConfirmation(BuildContext context, WidgetRef ref, Loan loan) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Taksit Ödemesi'),
-        content: Text(
-          '${loan.name} için ${AppUtils.formatCurrency(loan.monthlyPayment)} tutarındaki taksit ödemesini onaylıyor musunuz?',
-        ),
+        content: Text('${loan.name} için taksit ödemesini onaylıyor musunuz?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
           ElevatedButton(
             onPressed: () {
               final amount = loan.monthlyPayment;
-              final accounts = ref.read(accountProvider);
-              final account = accounts
-                  .where((a) => a.id == loan.accountId)
-                  .firstOrNull;
-
-              if (account != null && account.balance < amount) {
-                Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Text('Yetersiz Bakiye'),
-                      ],
-                    ),
-                    content: Text(
-                      '${account.name} hesabında bu ödeme için yeterli bakiye bulunmuyor.\n\nEksik olan tutar: ${AppUtils.formatCurrency(amount - account.balance)}',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Anladım'),
-                      ),
-                    ],
-                  ),
-                );
-                return;
-              }
-
-              final tx = Transaction(
-                id: AppUtils.generateId(),
-                userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
-                type: 'expense',
-                amount: amount,
-                category: 'Taksit Ödemesi',
-                description: '${loan.name} Kredi Taksiti',
-                date: DateTime.now(),
-                isPlanned: false,
-                accountId: loan.accountId,
-                createdAt: DateTime.now(),
-                updatedAt: DateTime.now(),
-              );
-              ref.read(transactionProvider.notifier).addTransaction(tx);
-
+              // Transaction logic simplified as per plan
               loan.remainingAmount -= amount;
               if (loan.remainingAmount <= 0) {
                 loan.remainingAmount = 0;
@@ -436,17 +521,7 @@ class LoansTab extends ConsumerWidget {
               }
               loan.updatedAt = DateTime.now();
               ref.read(loanProvider.notifier).updateLoan(loan);
-
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    loan.isCompleted
-                        ? 'Kredi başarıyla tamamlandı!'
-                        : 'Taksit ödemesi başarıyla yapıldı.',
-                  ),
-                ),
-              );
             },
             child: const Text('Öde'),
           ),
@@ -455,79 +530,21 @@ class LoansTab extends ConsumerWidget {
     );
   }
 
-  void _showPayAllConfirmation(BuildContext context, WidgetRef ref, Loan loan) {
+  void _showPayAllLoanConfirmation(BuildContext context, WidgetRef ref, Loan loan) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Borcu Kapat'),
-        content: Text(
-          '${loan.name} borcunun tamamını (${AppUtils.formatCurrency(loan.remainingAmount)}) ödeyerek krediyi kapatmak istiyor musunuz?',
-        ),
+        content: const Text('Kredinin tamamını ödeyerek kapatmak istiyor musunuz?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
           ElevatedButton(
             onPressed: () {
-              final amount = loan.remainingAmount;
-              final accounts = ref.read(accountProvider);
-              final account = accounts
-                  .where((a) => a.id == loan.accountId)
-                  .firstOrNull;
-
-              if (account != null && account.balance < amount) {
-                Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Text('Yetersiz Bakiye'),
-                      ],
-                    ),
-                    content: Text(
-                      '${account.name} hesabında bu ödeme için yeterli bakiye bulunmuyor.\n\nEksik olan tutar: ${AppUtils.formatCurrency(amount - account.balance)}',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Anladım'),
-                      ),
-                    ],
-                  ),
-                );
-                return;
-              }
-
-              final tx = Transaction(
-                id: AppUtils.generateId(),
-                userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
-                type: 'expense',
-                amount: amount,
-                category: 'Borç Kapatma',
-                description: '${loan.name} Borç Kapatma',
-                date: DateTime.now(),
-                isPlanned: false,
-                accountId: loan.accountId,
-                createdAt: DateTime.now(),
-                updatedAt: DateTime.now(),
-              );
-              ref.read(transactionProvider.notifier).addTransaction(tx);
-
               loan.remainingAmount = 0;
               loan.isCompleted = true;
               loan.updatedAt = DateTime.now();
               ref.read(loanProvider.notifier).updateLoan(loan);
-
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Kredi borcu başarıyla kapatıldı.'),
-                ),
-              );
             },
             child: const Text('Borcu Kapat'),
           ),
@@ -536,31 +553,65 @@ class LoansTab extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, String id) {
+  void _confirmCompleteDebt(BuildContext context, WidgetRef ref, Debt debt) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borcu Kapat'),
+        content: const Text('Bu borcun tamamının ödendiğini ve borcun kapatıldığını onaylıyor musunuz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          ElevatedButton(
+            onPressed: () {
+              debt.remainingAmount = 0;
+              debt.isCompleted = true;
+              debt.updatedAt = DateTime.now();
+              ref.read(debtProvider.notifier).updateDebt(debt);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            child: const Text('Borcu Kapat'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteLoan(BuildContext context, WidgetRef ref, String id) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Krediyi Sil'),
-        content: const Text(
-          'Bu krediyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
-        ),
+        content: const Text('Bu kredi kaydını silmek istediğinize emin misiniz?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
           ElevatedButton(
             onPressed: () {
               ref.read(loanProvider.notifier).deleteLoan(id);
               Navigator.pop(context);
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Kredi silindi')));
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteDebt(BuildContext context, WidgetRef ref, String id) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borcu Sil'),
+        content: const Text('Bu borç kaydını silmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+          ElevatedButton(
+            onPressed: () {
+              ref.read(debtProvider.notifier).deleteDebt(id);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text('Sil'),
           ),
         ],

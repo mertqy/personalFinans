@@ -10,6 +10,7 @@ import '../models/budget.dart';
 import '../models/goal.dart';
 import '../models/subscription.dart';
 import '../models/exchange_rate.dart';
+import '../models/debt.dart';
 
 class StorageService {
   static late HiveAesCipher _cipher;
@@ -39,6 +40,7 @@ class StorageService {
     Hive.registerAdapter(GoalAdapter()); // 6
     Hive.registerAdapter(SubscriptionAdapter()); // 7
     Hive.registerAdapter(ExchangeRateAdapter()); // 8
+    Hive.registerAdapter(DebtAdapter()); // 9
 
     // 3. Open Boxes (Settings remains unencrypted for general app access)
     await Hive.openBox('settings');
@@ -53,6 +55,7 @@ class StorageService {
     await _openSecureBox<Goal>('goals');
     await _openSecureBox<Subscription>('subscriptions');
     await _openSecureBox<ExchangeRate>('exchange_rates');
+    await _openSecureBox<Debt>('debts');
   }
 
   static Future<Box<E>> _openSecureBox<E>(String boxName) async {
@@ -178,6 +181,17 @@ class StorageService {
   static void updateLoan(Loan loan) => loanBox.put(loan.id, loan);
 
   static void deleteLoan(String id) => loanBox.delete(id);
+
+  // ==== DEBT OPERATIONS ====
+  static Box<Debt> get debtBox => Hive.box<Debt>('debts');
+
+  static List<Debt> getDebts() => debtBox.values.toList();
+
+  static void addDebt(Debt debt) => debtBox.put(debt.id, debt);
+
+  static void updateDebt(Debt debt) => debtBox.put(debt.id, debt);
+
+  static void deleteDebt(String id) => debtBox.delete(id);
 
   // ==== TRANSFER OPERATIONS ====
   static Box<Transfer> get transferBox => Hive.box<Transfer>('transfers');
@@ -332,6 +346,15 @@ class StorageService {
     for (var loan in loans) {
       loan.userId = newUserId;
       await loan.save();
+    }
+
+    // Migrate Debts
+    final debts = debtBox.values
+        .where((e) => e.userId == oldUserId)
+        .toList();
+    for (var debt in debts) {
+      debt.userId = newUserId;
+      await debt.save();
     }
   }
 }

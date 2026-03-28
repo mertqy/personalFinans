@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/purchase_service.dart';
-import '../providers/auth_provider.dart';
 
 final purchaseServiceProvider = Provider<PurchaseService>(
   (ref) => PurchaseService(),

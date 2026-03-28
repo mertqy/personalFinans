@@ -19,6 +19,7 @@ import '../widgets/auth_modal.dart';
 import '../widgets/membership_modal.dart';
 import '../widgets/premium_content_gate.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'profile_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -203,6 +204,13 @@ class DashboardScreen extends ConsumerWidget {
                                 await StorageService.setSkipLogin(false);
                                 ref.read(skipLoginProvider.notifier).state =
                                     false;
+                              } else if (value == 3) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ProfileScreen(),
+                                  ),
+                                );
                               }
                             },
                             itemBuilder: (context) => [
@@ -236,6 +244,23 @@ class DashboardScreen extends ConsumerWidget {
                                     SizedBox(width: 8),
                                     Text(
                                       'Üyeliğim',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 3,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.person_outline,
+                                      color: Colors.white70,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Profil',
                                       style: TextStyle(color: Colors.white),
                                     ),
                                   ],

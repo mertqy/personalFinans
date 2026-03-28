@@ -50,9 +50,15 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
       formattedText = _formatter.format(doubleValue);
     }
 
+    // Calculate cursor position from the end to allow editing in the middle
+    int cursorPositionFromEnd = newValue.text.length - newValue.selection.end;
+    int newSelectionEnd = formattedText.length - cursorPositionFromEnd;
+    if (newSelectionEnd < 0) newSelectionEnd = 0;
+    if (newSelectionEnd > formattedText.length) newSelectionEnd = formattedText.length;
+
     return TextEditingValue(
       text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
+      selection: TextSelection.collapsed(offset: newSelectionEnd),
     );
   }
 

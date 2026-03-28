@@ -3,6 +3,7 @@ class PremiumLimits {
   static const int freeCreditCardLimit = 1;
   static const int freeLoanLimit = 1;
   static const int freeSubscriptionLimit = 3;
+  static const int freeDebtLimit = 2;
   static const int freeBudgetLimit = 1;
   static const int freeGoalLimit = 1;
 
