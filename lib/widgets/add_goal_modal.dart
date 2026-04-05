@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/budget_provider.dart';
 import '../models/goal.dart';
 import '../core/utils.dart';
@@ -83,7 +82,7 @@ class _AddGoalModalState extends ConsumerState<AddGoalModal> {
         // Add
         final goal = Goal(
           id: AppUtils.generateId(),
-          userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
+          userId: 'local_user',
           title: _titleController.text,
           icon: _selectedIcon,
           targetAmount: amount,

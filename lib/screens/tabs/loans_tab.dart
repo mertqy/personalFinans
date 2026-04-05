@@ -4,11 +4,9 @@ import 'package:collection/collection.dart';
 import '../../providers/loan_provider.dart';
 import '../../providers/debt_provider.dart';
 import '../../core/utils.dart';
-import '../../core/premium_limits.dart';
 import '../../widgets/add_loan_modal.dart';
 import '../../widgets/add_debt_modal.dart';
 import '../../widgets/pay_debt_modal.dart';
-import '../../widgets/premium_gate.dart';
 import '../../providers/account_provider.dart';
 import '../../models/loan.dart';
 import '../../models/debt.dart';
@@ -174,14 +172,7 @@ class LoansTab extends ConsumerWidget {
     );
   }
 
-  void _showAddLoan(BuildContext context, WidgetRef ref, int currentCount) async {
-    final allowed = await PremiumGate.check(
-      context: context,
-      ref: ref,
-      currentCount: currentCount,
-      freeLimit: PremiumLimits.freeLoanLimit,
-    );
-    if (!allowed || !context.mounted) return;
+  void _showAddLoan(BuildContext context, WidgetRef ref, int currentCount) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -190,14 +181,7 @@ class LoansTab extends ConsumerWidget {
     );
   }
 
-  void _showAddDebt(BuildContext context, WidgetRef ref, int currentCount) async {
-    final allowed = await PremiumGate.check(
-      context: context,
-      ref: ref,
-      currentCount: currentCount,
-      freeLimit: PremiumLimits.freeDebtLimit,
-    );
-    if (!allowed || !context.mounted) return;
+  void _showAddDebt(BuildContext context, WidgetRef ref, int currentCount) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

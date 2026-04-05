@@ -57,7 +57,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1080, 1920));
 
     // Build our app and trigger a frame.
-    await tester.pumpWidget(ProviderScope(child: const PersonalFinansApp()));
+    await tester.pumpWidget(ProviderScope(child: const ParamNeredeApp()));
 
     // Initial pump to load the first frame
     await tester.pump();

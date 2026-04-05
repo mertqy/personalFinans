@@ -6,9 +6,7 @@ import '../../providers/account_provider.dart';
 import '../../models/subscription.dart';
 import '../../models/account.dart';
 import '../../core/utils.dart';
-import '../../core/premium_limits.dart';
 import '../../widgets/add_subscription_modal.dart';
-import '../../widgets/premium_gate.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class SubscriptionsTab extends ConsumerWidget {
@@ -358,14 +356,7 @@ class SubscriptionsTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     int currentCount,
-  ) async {
-    final allowed = await PremiumGate.check(
-      context: context,
-      ref: ref,
-      currentCount: currentCount,
-      freeLimit: PremiumLimits.freeSubscriptionLimit,
-    );
-    if (!allowed || !context.mounted) return;
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

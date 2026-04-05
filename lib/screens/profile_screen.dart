@@ -1,35 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../providers/premium_provider.dart';
 import '../services/storage_service.dart';
 import '../app/theme.dart';
+import 'legal_text_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authService = ref.watch(authServiceProvider);
-    final user = authService.currentUser;
-    final isPremium = ref.watch(isPremiumProvider).valueOrNull ?? false;
+    final user = ref.watch(currentUserProvider);
     final name = StorageService.settingsBox.get('user_name', defaultValue: 'Kullanıcı');
     final email = user?.email ?? 'Misafir Hesabı';
-    
-    // Check sign in method
-    String signInMethod = 'Misafir';
-    IconData methodIcon = Icons.person_outline;
-    if (user != null) {
-      if (user.providerData.any((p) => p.providerId == 'google.com')) {
-        signInMethod = 'Google ile giriş yapıldı';
-        methodIcon = Icons.g_mobiledata;
-      } else if (user.providerData.any((p) => p.providerId == 'apple.com')) {
-        signInMethod = 'Apple ile giriş yapıldı';
-        methodIcon = Icons.apple;
-      } else if (user.isAnonymous) {
-        signInMethod = 'Misafir Hesabı';
-      }
-    }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -79,47 +62,12 @@ class ProfileScreen extends ConsumerWidget {
                     email,
                     style: const TextStyle(color: Colors.grey),
                   ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isPremium ? Colors.amber.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isPremium ? Icons.star : Icons.star_outline,
-                          size: 16,
-                          color: isPremium ? Colors.amber : Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          isPremium ? 'PREMIUM ÜYESİ' : 'STANDART ÜYELİK',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: isPremium ? Colors.amber[800] : Colors.grey[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             
             // Account Section
-            _buildSectionTitle('Hesap Yönetimi'),
-            _buildOptionCard(
-              context,
-              title: 'Giriş Yöntemi',
-              subtitle: signInMethod,
-              icon: methodIcon,
-              onTap: () {},
-            ),
             
             const SizedBox(height: 16),
             _buildSectionTitle('Uygulama Ayarları'),
@@ -132,16 +80,87 @@ class ProfileScreen extends ConsumerWidget {
             ),
              _buildOptionCard(
               context,
-              title: 'Veri Yedekleme',
-              subtitle: 'Google Drive / iCloud',
-              icon: Icons.cloud_done_outlined,
-              onTap: () {},
-            ),
-             _buildOptionCard(
-              context,
               title: 'Yardım & Destek',
               icon: Icons.help_outline_rounded,
               onTap: () {},
+            ),
+            
+            const SizedBox(height: 16),
+            _buildSectionTitle('Yasal Bilgiler'),
+            _buildOptionCard(
+              context,
+              title: 'Gizlilik Politikası',
+              icon: Icons.privacy_tip_outlined,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const LegalTextScreen(
+                      title: 'Gizlilik Politikası',
+                      content: '''Gizlilik Politikası
+
+Son Güncelleme Tarihi: 4 Nisan 2026
+
+1. Giriş ve Kapsam
+ParamNerede ("Uygulama"), kullanıcıların ("Siz") kişisel verilerinin korunmasına, veri mahremiyetine ve gizliliğine azami hassasiyet göstermektedir. Bu gizlilik politikası, Uygulama'yı kullanımınız esnasında toplanan, işlenen ve saklanan verilerin hukuki dayanaklarını, saklanma koşullarını ve haklarınızı detaylandırmaktadır. Uygulamayı indirmeniz veya kullanmanız, işbu politikada izah edilen şartları kabul ettiğiniz anlamına gelir.
+
+2. Toplanan Veriler ve Veri İşleme Amacı
+Uygulamanın temel amacı kişisel bütçe yönetimi, gelir, gider ve tasarruf planlamanızı analiz etmektir. Bu bağlamda, girmiş olduğunuz tüm finansal kayıtlar (gelirler, harcamalar, bütçe limitleri, vb.) yalnızca kullanım deneyiminizi optimize etmek ve size içgörüler sunmak amacıyla işlenmektedir. 
+Uygulamamız, veri minimalizasyonu prensiplerine sadık kalarak, doğrudan uygulamanın işleyişi ile ilgili olmayan hiçbir gereksiz veriyi talep etmez veya işlemez.
+
+3. Verilerin Depolanması ve Güvenlik Seviyesi
+Verileriniz, yerel (offline) mimari üzerine kuruludur. Girdiğiniz tüm kayıtlar cihazınızın güvenli depolama alanında tutulmaktadır. Kullanıcının açık rızası ve aktif tercihi ile harici bir bulut senkronizasyon servisi (örn. iCloud, Google Drive) kullanıldığı durumlar haricinde veriler cihaz dışarısına çıkartılmaz veya kendi sunucularımızda barındırılmaz. Verileriniz, genel kabul görmüş standart şifreleme ve güvenlik önlemleri ile korunmaktadır.
+
+4. Veri Paylaşımı ve Üçüncü Taraflara Aktarım
+ParamNerede, cihazınızda işlenen kişisel ve finansal verilerinizi hiçbir ad altında üçüncü şahıslarla, reklam ajanslarıyla veya bağımsız analiz şirketleriyle paylaşmaz ve gelir elde etmek amacıyla üçüncü kişi ve kurumlara devretmez / satmaz. 
+
+5. Kullanıcı Hakları ve Verilerin İmhası
+Uygulamada yer alan tüm finansal kayıtlarınız sizin mülkiyetinizdedir. İstediğiniz an ayarlar kısmından verilerinizin tamamını silebilir veya uygulamayı cihazınızdan kaldırarak verilerin kalıcı olarak imha edilmesini sağlayabilirsiniz.
+
+6. İletişim
+İşbu Gizlilik Politikası ile ilgili her tür soru, geri bildirim veya teknik destek talebi için resmi destek e-posta adresimiz üzerinden bizimle iletişime geçebilirsiniz.
+
+İletişim Adresi: legal@paramnerede.com
+''',
+                    ),
+                  ),
+                );
+              },
+            ),
+            _buildOptionCard(
+              context,
+              title: 'Kullanım Koşulları',
+              icon: Icons.description_outlined,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const LegalTextScreen(
+                      title: 'Kullanım Koşulları',
+                      content: '''Kullanım Koşulları
+
+Son Güncelleme Tarihi: 4 Nisan 2026
+
+1. Taraflar ve Sözleşmenin Kabulü
+İşbu Kullanım Koşulları ("Sözleşme"), ParamNerede uygulamasının ("Uygulama") yüklenmesi, çalıştırılması ve kullanılmasıyla ilgili uygulama geliştiricisi ile son kullanıcı ("Siz" veya "Kullanıcı") arasındaki yasal ve bağlayıcı hak ve yükümlülükleri düzenler. Uygulamayı kullanmaya başlayarak bu belgedeki tüm kuralları okuduğunuzu, anladığınızı ve geri dönülemez bir şekilde kabul ettiğinizi beyan edersiniz.
+
+2. Hizmetin Kapsamı ve Verilen Lisans
+Uygulama, temel olarak bireysel finans ve bütçe yönetimi alanında hesaplama ve görselleştirme desteği sunan bir finansal takip araçları bütünüdür. Geliştirici, Kullanıcı'ya yalnızca kişisel, ticari olmayan ve devredilemez nitelikte geçici bir kullanım lisansı tesis etmektedir. Uygulamanın kaynak kodunun değiştirilmesi, tersine mühendisliği, çoğaltılması ve ticari veya kötü niyetli amaçlarla farklı bir sürümünün yayınlanması kesinlikle yasaktır ve doğrudan hak ihlali oluşturur.
+
+3. Sorumluluk Reddi (Disclaimer) ve Mali Tavsiye Sınırları
+Uygulama aracılığıyla analiz edilen veriler, bütçe yönlendirmeleri, harcama grafikleri ve genel finansal yorumlar tamamen bilgilendirme amaçlıdır. Uygulamada yer alan hiçbir görsel veya metin bildirim, profesyonel, yasal, vergisel veya serbest piyasa koşullarını yönlendirecek nitelikte bir "Yatırım Tavsiyesi" veya danışmanlık hizmeti yerine geçmez. Kullanıcının bu bilgilere dayanarak alacağı her çeşit finansal veya yatırımsal aksiyondan doğacak doğrudan ya da dolaylı zararlardan Uygulama Geliştiricisi sorumlu tutulamaz.
+
+4. Veri Sorumluluğu, Kullanım Riskleri ve Yedekleme
+Kullanıcı, Uygulama içine girilen tüm hesap ve gelir/gider verilerinin doğruluğundan tek başına sorumludur. Uygulama, çevrimdışı işleyişi dolayısıyla girilen verilerin donanım arızası, işletim sistemi hatası veya cihaz kaybı gibi kullanıcının denetimindeki aksaklıklardan doğacak veri kaybı durumlarında sorumluluk kabul etmez. Kullanıcıların verilerini ilgili bulut hizmetlerine (iCloud / Google Drive) düzenli olarak yedeklemesi önemle tavsiye olunur.
+
+5. Sözleşme İhlali ve Hizmetin Sona Ermesi
+İşbu sözleşmede veya meri mevzuatta belirtilen yükümlülüklere aykırı kullanımın tespiti halinde veya Uygulama geliştiricisinin bağımsız ve haklı inisiyatifiyle, önceden hiçbir fesih veya iptal ihbarnamesine gerek kalmaksızın, kullanıcının uygulamaya veya bazı özelliklere olan erişimi engellenebilir veya feshedilebilir.
+
+6. Değişiklik ve Güncellemeler
+Geliştirici, gelişen teknoloji veya değişen hukuk kuralları gereği işbu Kullanım Koşulları üzerinde tek taraflı olarak güncelleme veya değişiklik yapma hakkını saklı tutar. Değişiklikler, uygulama arayüzünde yayınlandıkları andan itibaren Kullanıcı tarafından kabul edilmiş sayılarak yürürlüğe girer.
+''',
+                    ),
+                  ),
+                );
+              },
             ),
             
             const SizedBox(height: 32),

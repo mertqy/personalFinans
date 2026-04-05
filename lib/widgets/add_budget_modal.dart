@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:collection/collection.dart';
 import '../providers/budget_provider.dart';
 import '../models/budget.dart';
@@ -89,9 +88,10 @@ class _AddBudgetModalState extends ConsumerState<AddBudgetModal> {
           return;
         }
 
+        const String currentUserId = 'local_user';
         final budget = Budget(
           id: AppUtils.generateId(),
-          userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
+          userId: currentUserId,
           categoryId: _selectedCategory!,
           amount: amount,
           period: _period,

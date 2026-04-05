@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,8 +5,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../app/theme.dart';
 import '../providers/auth_provider.dart';
 import '../services/storage_service.dart';
-import '../widgets/auth/google_auth_button.dart';
-import '../widgets/auth/apple_auth_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -19,48 +16,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
   String? _error;
-
-  Future<void> _handleSignIn(Future<dynamic> Function() signInMethod) async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final authService = ref.read(authServiceProvider);
-      final oldUid = authService.currentUser?.uid ?? 'temp_user';
-
-      // If we are already logged in (maybe anonymously), sign out first to ensure fresh login
-      // But for social login, we might want to link. 
-      // For now, let's follow AuthModal logic: sign out then sign in.
-      await authService.signOut();
-
-      final result = await signInMethod();
-      if (mounted) {
-        final newUid = result?.user?.uid;
-        if (newUid != null && newUid != oldUid) {
-          await StorageService.migrateUserData(oldUid, newUid);
-        }
-
-        if (result?.user?.displayName != null) {
-          await StorageService.settingsBox.put(
-            'user_name',
-            result!.user!.displayName,
-          );
-        }
-        await StorageService.setSkipLogin(false);
-        ref.read(skipLoginProvider.notifier).state = false;
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _error = 'Giriş yapılamadı. Tekrar deneyin.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,25 +108,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
 
-              // Social Sign In
-              GoogleAuthButton(
-                onPressed: () => _handleSignIn(
-                  () => ref.read(authServiceProvider).signInWithGoogle(),
-                ),
-                isLoading: _isLoading,
-                label: 'Google ile Giriş Yap',
-              ).animate().fadeIn(delay: 500.ms, duration: 500.ms),
-
-              if (!kIsWeb && Platform.isIOS) ...[
-                const SizedBox(height: 12),
-                AppleAuthButton(
-                  onPressed: () => _handleSignIn(
-                    () => ref.read(authServiceProvider).signInWithApple(),
-                  ),
-                  isLoading: _isLoading,
-                  label: 'Apple ile Giriş Yap',
-                ).animate().fadeIn(delay: 600.ms, duration: 500.ms),
-              ],
 
               const SizedBox(height: 24),
 

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/budget_provider.dart';
@@ -8,8 +7,6 @@ import '../../providers/transaction_provider.dart';
 import '../../core/utils.dart';
 import '../../models/goal.dart';
 import '../../models/transaction.dart';
-import '../../core/premium_limits.dart';
-import '../../widgets/premium_gate.dart';
 import '../../widgets/add_goal_modal.dart';
 import '../../widgets/goal_success_dialog.dart';
 import '../../core/formatters.dart';
@@ -81,7 +78,11 @@ class GoalsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildAddButton(BuildContext context, WidgetRef ref, int currentCount) {
+  Widget _buildAddButton(
+    BuildContext context,
+    WidgetRef ref,
+    int currentCount,
+  ) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 16),
@@ -99,14 +100,7 @@ class GoalsTab extends ConsumerWidget {
     );
   }
 
-  void _showAddGoal(BuildContext context, WidgetRef ref, int currentCount) async {
-    final allowed = await PremiumGate.check(
-      context: context,
-      ref: ref,
-      currentCount: currentCount,
-      freeLimit: PremiumLimits.freeGoalLimit, 
-    );
-    if (!allowed || !context.mounted) return;
+  void _showAddGoal(BuildContext context, WidgetRef ref, int currentCount) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -351,7 +345,7 @@ class GoalsTab extends ConsumerWidget {
                 // Create a transfer transaction
                 final transaction = Transaction(
                   id: AppUtils.generateId(),
-                  userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
+                  userId: 'local_user',
                   type: 'transfer',
                   amount: amount,
                   category: 'Transfer',

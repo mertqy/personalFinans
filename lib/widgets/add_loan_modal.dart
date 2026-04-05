@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:collection/collection.dart';
 import '../providers/loan_provider.dart';
 import '../providers/account_provider.dart';
@@ -177,7 +176,7 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
         // Add
         final loan = Loan(
           id: AppUtils.generateId(),
-          userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
+          userId: 'local_user',
           name: _selectedName!,
           bank: selectedAccount.name,
           type: _selectedName == 'Araç'
@@ -200,7 +199,7 @@ class _AddLoanModalState extends ConsumerState<AddLoanModal> {
         // Kredi girişini işlem olarak ekle (Son işlemlerde gözükmesi için)
         final tx = Transaction(
           id: AppUtils.generateId(),
-          userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
+          userId: 'local_user',
           type: 'income',
           amount: principal, // Sadece anapara
           category: 'Kredi Girişi',

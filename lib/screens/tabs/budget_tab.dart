@@ -6,8 +6,6 @@ import '../../providers/credit_card_provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../core/utils.dart';
-import '../../core/premium_limits.dart';
-import '../../widgets/premium_gate.dart';
 import '../../widgets/add_budget_modal.dart';
 
 class BudgetTab extends ConsumerWidget {
@@ -276,14 +274,7 @@ class BudgetTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     int currentCount,
-  ) async {
-    final allowed = await PremiumGate.check(
-      context: context,
-      ref: ref,
-      currentCount: currentCount,
-      freeLimit: PremiumLimits.freeBudgetLimit,
-    );
-    if (!allowed || !context.mounted) return;
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

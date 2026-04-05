@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:collection/collection.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/account_provider.dart';
@@ -398,7 +397,7 @@ class _AddSubscriptionModalState extends ConsumerState<AddSubscriptionModal> {
 
     final subscription = Subscription(
       id: widget.subscription?.id ?? AppUtils.generateId(),
-      userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
+      userId: 'local_user',
       name: _nameController.text,
       amount: amount,
       category: 'subscription',

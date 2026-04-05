@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/account_provider.dart';
 import '../../core/utils.dart';
-import '../../core/premium_limits.dart';
 import '../../widgets/add_account_modal.dart';
-import '../../widgets/premium_gate.dart';
 import '../account_detail_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -32,14 +30,7 @@ class AccountsTab extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () async {
-                    final allowed = await PremiumGate.check(
-                      context: context,
-                      ref: ref,
-                      currentCount: accounts.length,
-                      freeLimit: PremiumLimits.freeAccountLimit,
-                    );
-                    if (!allowed || !context.mounted) return;
+                  onPressed: () {
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
@@ -62,14 +53,7 @@ class AccountsTab extends ConsumerWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final allowed = await PremiumGate.check(
-                        context: context,
-                        ref: ref,
-                        currentCount: accounts.length,
-                        freeLimit: PremiumLimits.freeAccountLimit,
-                      );
-                      if (!allowed || !context.mounted) return;
+                    onPressed: () {
                       showModalBottomSheet(
                         context: context,
                         isScrollControlled: true,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -15,8 +14,6 @@ import '../widgets/transaction_modal.dart';
 import '../providers/exchange_rate_provider.dart';
 import '../services/storage_service.dart';
 import '../widgets/mini_heatmap.dart';
-import '../widgets/auth_modal.dart';
-import '../widgets/membership_modal.dart';
 import '../widgets/premium_content_gate.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'profile_screen.dart';
@@ -108,17 +105,8 @@ class DashboardScreen extends ConsumerWidget {
     final monthlyIncomeTRY = calculateMonthlyTotal('income');
     final monthlyExpenseTRY = calculateMonthlyTotal('expense');
 
-    final user = FirebaseAuth.instance.currentUser;
-    String userName = (user?.isAnonymous ?? true)
-        ? (StorageService.settingsBox.get('user_name', defaultValue: 'Misafir')
-              as String)
-        : (user?.displayName ??
-              StorageService.settingsBox.get(
-                    'user_name',
-                    defaultValue: 'Misafir',
-                  )
-                  as String);
-
+    final authService = ref.read(authServiceProvider);
+    String userName = StorageService.settingsBox.get('user_name', defaultValue: 'Misafir') as String;
     if (userName.isEmpty) userName = 'Misafir';
 
     final userInitials = userName.isNotEmpty && userName.contains(' ')
@@ -182,21 +170,7 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                             offset: const Offset(0, 56),
                             onSelected: (value) async {
-                              if (value == 0) {
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (ctx) => const AuthModal(),
-                                );
-                              } else if (value == 1) {
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (ctx) => const MembershipModal(),
-                                );
-                              } else if (value == 2) {
+                              if (value == 2) {
                                 final authService = ref.read(
                                   authServiceProvider,
                                 );
@@ -214,41 +188,6 @@ class DashboardScreen extends ConsumerWidget {
                               }
                             },
                             itemBuilder: (context) => [
-                              if (user?.isAnonymous ?? true)
-                                const PopupMenuItem(
-                                  value: 0,
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.login,
-                                        color: Colors.white70,
-                                        size: 20,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Giriş Yap / Üye Ol',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              const PopupMenuItem(
-                                value: 1,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.star_border_rounded,
-                                      color: Colors.white70,
-                                      size: 20,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Üyeliğim',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ],
-                                ),
-                              ),
                               const PopupMenuItem(
                                 value: 3,
                                 child: Row(
@@ -266,7 +205,7 @@ class DashboardScreen extends ConsumerWidget {
                                   ],
                                 ),
                               ),
-                              if (!(user?.isAnonymous ?? true))
+                              if (!authService.isAnonymous)
                                 const PopupMenuItem(
                                   value: 2,
                                   child: Row(

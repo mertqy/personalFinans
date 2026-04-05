@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/account_provider.dart';
 import '../providers/transaction_provider.dart';
@@ -59,8 +58,7 @@ class _AddAccountModalState extends ConsumerState<AddAccountModal> {
       final amount = ThousandsSeparatorInputFormatter.parse(
         _balanceController.text,
       );
-      final String currentUserId =
-          FirebaseAuth.instance.currentUser?.uid ?? 'temp_user';
+      const String currentUserId = 'local_user';
 
       if (widget.account != null) {
         // Düzenleme

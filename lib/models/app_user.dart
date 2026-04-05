@@ -1,5 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
-
 class AppUser {
   final String uid;
   final String? email;
@@ -17,14 +15,13 @@ class AppUser {
     this.isAnonymous = false,
   });
 
-  factory AppUser.fromFirebaseUser(User user, {bool isPremium = false}) {
+  factory AppUser.local({bool isPremium = false}) {
     return AppUser(
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      photoUrl: user.photoURL,
+      uid: 'local_user',
+      email: 'local@example.com',
+      displayName: 'Yerel Kullanıcı',
       isPremium: isPremium,
-      isAnonymous: user.isAnonymous,
+      isAnonymous: true,
     );
   }
 }

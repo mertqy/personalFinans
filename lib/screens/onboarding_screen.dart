@@ -14,7 +14,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<OnboardingData> _pages = [
     OnboardingData(
-      title: 'Param Nerede?',
+      title: 'ParamNerede',
       description:
           'Finansal özgürlüğünüz için harcamalarınızı ve bütçenizi kontrol altına almanın en akıllı yolu.',
       icon: Icons.account_balance_wallet,

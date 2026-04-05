@@ -50,7 +50,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         children: [
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.mertqy.personalfinans',
+            userAgentPackageName: 'com.mertqy.paramnerede',
           ),
           if (_selectedLocation != null)
             MarkerLayer(

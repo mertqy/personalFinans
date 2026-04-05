@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/account.dart';
 import '../services/storage_service.dart';
 import '../core/utils.dart';
@@ -179,8 +178,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
 
   void _saveAndContinue() async {
     if (_formKey.currentState!.validate()) {
-      final user = FirebaseAuth.instance.currentUser;
-      final userId = user?.uid ?? 'temp_user';
+      final userId = 'local_user';
 
       // 1. Ayarları Kaydet
       await StorageService.settingsBox.put('user_name', _nameController.text);

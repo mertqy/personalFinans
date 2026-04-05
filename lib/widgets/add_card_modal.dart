@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/credit_card_provider.dart';
 import '../providers/account_provider.dart';
 import '../models/credit_card.dart';
@@ -88,7 +87,7 @@ class _AddCardModalState extends ConsumerState<AddCardModal> {
         // Add
         final card = CreditCard(
           id: AppUtils.generateId(),
-          userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
+          userId: 'local_user',
           name: _nameController.text,
           bank: selectedAccount.name,
           accountId: _selectedAccountId!,

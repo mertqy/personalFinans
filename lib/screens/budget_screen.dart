@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -7,7 +6,6 @@ import '../providers/budget_provider.dart';
 import '../providers/account_provider.dart';
 import '../providers/credit_card_provider.dart';
 import '../providers/transaction_provider.dart';
-import '../providers/premium_provider.dart';
 import '../core/utils.dart';
 import '../models/goal.dart';
 import '../models/budget.dart';
@@ -15,7 +13,6 @@ import '../models/transaction.dart';
 import '../widgets/add_budget_modal.dart';
 import '../widgets/add_goal_modal.dart';
 import '../widgets/goal_success_dialog.dart';
-import '../widgets/premium_gate.dart';
 import '../core/formatters.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -61,59 +58,40 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
         ),
         actions: [
           // Simulated PDF button from the design
-          Consumer(
-            builder: (context, ref, _) {
-              final premiumAsync = ref.watch(isPremiumProvider);
-              final isPremium = premiumAsync.whenOrNull(data: (v) => v) ?? false;
-              
-              return Container(
-                margin: const EdgeInsets.only(right: 16),
-                child: Material(
-                  color: isPremium ? _blueAccent : _cardColor,
-                  borderRadius: BorderRadius.circular(8),
-                  child: InkWell(
-                    onTap: () async {
-                      if (await PremiumGate.check(
-                        context: context,
-                        ref: ref,
-                        currentCount: 1,
-                        freeLimit: 0,
-                      )) {
-                        // Stub PDF action
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('PDF Raporu hazırlanıyor...')),
-                        );
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            child: Material(
+              color: _cardColor,
+              borderRadius: BorderRadius.circular(8),
+              child: InkWell(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('PDF Raporu hazırlanıyor...')),
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.download_rounded, color: _textGrey, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        'PDF',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: _textGrey,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isPremium ? Icons.download_rounded : Icons.lock_rounded,
-                            color: isPremium ? Colors.white : _textGrey,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'PDF',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: isPremium ? Colors.white : _textGrey,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),
@@ -851,7 +829,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                 // Create a transfer transaction
                 final transaction = Transaction(
                   id: AppUtils.generateId(),
-                  userId: FirebaseAuth.instance.currentUser?.uid ?? 'temp_user',
+                  userId: 'local_user',
                   type: 'transfer',
                   amount: amount,
                   category: 'Transfer',

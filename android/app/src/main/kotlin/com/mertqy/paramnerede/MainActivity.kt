@@ -1,4 +1,4 @@
-package com.example.flatter
+package com.mertqy.paramnerede
 
 import io.flutter.embedding.android.FlutterActivity
 
