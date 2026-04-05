@@ -116,6 +116,8 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: true
+  ios: false
   image_path: "assets/icons/ParamNeredeIcon.jpeg"
+  adaptive_icon_background: "#121212" # Dark background matching app theme
+  adaptive_icon_foreground: "assets/icons/ParamNeredeIcon.jpeg"
   min_sdk_android: 21
